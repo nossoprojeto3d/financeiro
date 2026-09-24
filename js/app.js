@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.1.5';
+const VERSAO = '2.2.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -75,6 +75,26 @@ function toast(msg, erro = false) {
 }
 
 /* ===================== Porta (login, trava) ===================== */
+// Logo NP desenhada em SVG, com barras subindo no canto (tema financeiro).
+function logoMarca() {
+  const tracos = 'M24.5 119.2H11.8V5.2H106.2V31M68.6 121.2H32.5V29L68.6 71.2M68.6 29V124M53 29H84.5A21.1 21.1 0 0 1 84.5 71.2H68.6';
+  return `
+    <svg class="logo" viewBox="0 0 118 128" aria-label="Nosso Projeto 3D">
+      <defs>
+        <linearGradient id="ouro-logo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#E7C873"/><stop offset=".5" stop-color="#C9A227"/><stop offset="1" stop-color="#8A6F1F"/>
+        </linearGradient>
+      </defs>
+      <path class="logo-traco" d="${tracos}" pathLength="1"/>
+      <path class="logo-friso" d="${tracos}"/>
+      <g class="logo-barras">
+        <rect x="78" y="106" width="6" height="15.2"/>
+        <rect x="89" y="95" width="6" height="26.2"/>
+        <rect x="100" y="82" width="6" height="39.2"/>
+      </g>
+    </svg>`;
+}
+
 function mostrarPorta(html) {
   $('#shell').hidden = true;
   const p = $('#porta');
@@ -84,8 +104,11 @@ function mostrarPorta(html) {
 
 function telaConfigFaltando() {
   mostrarPorta(`
-    <span class="marca">Nosso Projeto 3D</span>
-    <h1>Caixa</h1>
+    <div class="porta-topo">
+      ${logoMarca()}
+      <h1>Caixa</h1>
+      <span class="marca">Nosso Projeto 3D</span>
+    </div>
     <div class="aviso-config">
       Falta conectar o banco. Abra <code>js/config.js</code> e preencha
       <code>SUPABASE_URL</code>, <code>SUPABASE_KEY</code> e os e-mails dos usuários.
@@ -97,9 +120,11 @@ function telaLogin(msg = '') {
   const us = window.CAIXA_CONFIG.USUARIOS || [];
   const ultimo = localStorage.getItem('caixa_email') || us[0]?.email || '';
   mostrarPorta(`
-    <span class="marca">Nosso Projeto 3D</span>
-    <h1>Caixa</h1>
-    <p class="lead">Quem está entrando?</p>
+    <div class="porta-topo">
+      ${logoMarca()}
+      <h1>Caixa</h1>
+      <span class="marca">Nosso Projeto 3D</span>
+    </div>
     <form id="form-login" autocomplete="on">
       <div class="quem">
         ${us.map((u, i) => `
@@ -141,8 +166,11 @@ function telaLogin(msg = '') {
 function telaBloqueio() {
   const nome = localStorage.getItem('caixa_nome') || '';
   mostrarPorta(`
-    <span class="marca">Nosso Projeto 3D</span>
-    <h1>Caixa</h1>
+    <div class="porta-topo">
+      ${logoMarca()}
+      <h1>Caixa</h1>
+      <span class="marca">Nosso Projeto 3D</span>
+    </div>
     <p class="lead">${nome ? `Olá, ${esc(nome)}. ` : ''}Desbloqueie para ver os números.</p>
     <button class="btn" id="btn-desbloquear">
       <svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1.5M15 9v1.5M12 9v4h-1M9.5 16c1.5 1 3.5 1 5 0"/></svg>
@@ -1009,7 +1037,7 @@ function telaAjustes() {
       </div>
     </section>
 
-    <p class="rodape">Caixa · Nosso Projeto 3D · versão ${VERSAO}<br><small>${screen.height} · ${innerHeight} · ${document.documentElement.scrollHeight}</small></p>`;
+    <p class="rodape">Caixa · Nosso Projeto 3D · versão ${VERSAO}</p>`;
 }
 
 function abrirCategoria(c = null) {
