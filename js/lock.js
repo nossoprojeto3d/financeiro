@@ -7,14 +7,17 @@ const Lock = (() => {
   const deB64 = s => Uint8Array.from(atob(s), c => c.charCodeAt(0));
   const aleatorio = n => crypto.getRandomValues(new Uint8Array(n));
 
+  // Só no celular: no computador (Touch ID do Mac, Windows Hello) a trava não faz sentido.
+  const celular = () => matchMedia('(pointer: coarse)').matches && navigator.maxTouchPoints > 0;
+
   async function disponivel() {
     try {
-      return !!(window.isSecureContext && window.PublicKeyCredential &&
+      return !!(celular() && window.isSecureContext && window.PublicKeyCredential &&
         await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable());
     } catch (_) { return false; }
   }
 
-  const ativo = () => !!localStorage.getItem(CHAVE);
+  const ativo = () => celular() && !!localStorage.getItem(CHAVE);
 
   async function ativar(nome, email) {
     const cred = await navigator.credentials.create({
@@ -51,5 +54,5 @@ const Lock = (() => {
 
   const desativar = () => localStorage.removeItem(CHAVE);
 
-  return { disponivel, ativo, ativar, verificar, desativar };
+  return { celular, disponivel, ativo, ativar, verificar, desativar };
 })();

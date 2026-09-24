@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.3.0';
+const VERSAO = '2.3.1';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -1024,10 +1024,10 @@ function telaAjustes() {
     <section class="secao">
       <div class="secao-topo"><h2>Segurança</h2></div>
       <div class="bloco" style="padding-top:4px;padding-bottom:4px">
-        <button class="opcao" data-acao="${Lock.ativo() ? 'faceid-off' : 'faceid-on'}">
+        ${Lock.celular() ? `<button class="opcao" data-acao="${Lock.ativo() ? 'faceid-off' : 'faceid-on'}">
           <span>Face ID ao abrir<small>Pede o Face ID sempre que o app abre ou volta depois de 1 minuto</small></span>
           <span class="dir ${Lock.ativo() ? 'on' : ''}">${Lock.ativo() ? 'Ativado' : 'Ativar'}</span>
-        </button>
+        </button>` : ''}
         <button class="opcao" data-acao="sair"><span>Sair da conta<small>Pede a senha na próxima vez</small></span><span class="dir">Sair</span></button>
       </div>
     </section>
