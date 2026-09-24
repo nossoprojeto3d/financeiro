@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.5.1';
+const VERSAO = '2.6.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -466,7 +466,7 @@ function categoriasOrdenadas(tipo, incluirId) {
   const uso = {};
   S.lancs.forEach(l => { uso[l.categoria_id] = (uso[l.categoria_id] || 0) + 1; });
   return S.categorias
-    .filter(c => c.tipo === tipo && (c.ativa || c.id === incluirId))
+    .filter(c => c.tipo === tipo)
     .sort((a, b) => (uso[b.id] || 0) - (uso[a.id] || 0) || a.nome.localeCompare(b.nome));
 }
 
@@ -1104,10 +1104,10 @@ function telaAjustes() {
         <p class="sub-titulo">${g.t === 'entrada' ? 'Entradas' : 'Saídas'}</p>
         <div class="bloco" style="padding-top:2px;padding-bottom:2px">
           ${g.lista.map(c => `
-            <button class="opcao ${c.ativa ? '' : 'cat-inativa'}" data-acao="cat-editar" data-id="${c.id}">
+            <button class="opcao" data-acao="cat-editar" data-id="${c.id}">
               <span style="display:flex;align-items:center;gap:10px">
                 <span class="ponto" style="width:9px;height:9px;border-radius:50%;background:${corCategoria(c.id)}"></span>
-                <span>${esc(c.nome)}<small>${esc(nomeNatureza(c.natureza))}${c.ativa ? '' : ' · arquivada'}</small></span>
+                <span>${esc(c.nome)}<small>${esc(nomeNatureza(c.natureza))}</small></span>
               </span>
               <span class="dir">Editar</span>
             </button>`).join('')}
@@ -1126,48 +1126,73 @@ function telaAjustes() {
 }
 
 function abrirCategoria(c = null) {
-  const est = c ? { id: c.id, tipo: c.tipo, nome: c.nome, natureza: c.natureza, ativa: c.ativa }
-    : { id: null, tipo: 'saida', nome: '', natureza: 'variavel', ativa: true };
+  const est = c ? { id: c.id, tipo: c.tipo, nome: c.nome, natureza: c.natureza, excluindo: false, destino: null }
+    : { id: null, tipo: 'saida', nome: '', natureza: 'variavel' };
+  const usos = c ? S.lancs.filter(l => l.categoria_id === c.id).length + S.recorrentes.filter(r => r.categoria_id === c.id).length : 0;
   const desenhar = () => {
     const nat = NATUREZAS[est.tipo];
-    const usos = c ? S.lancs.filter(l => l.categoria_id === c.id).length : 0;
+    const outras = c ? S.categorias.filter(x => x.tipo === c.tipo && x.id !== c.id).sort((a, b) => a.nome.localeCompare(b.nome)) : [];
     abrirSheet(`
       <div class="sheet-topo"><h2>${c ? 'Editar categoria' : 'Nova categoria'}</h2><button class="fechar" data-acao="fechar" aria-label="Fechar">×</button></div>
       ${c ? '' : `<div class="grupo"><div class="segmento">
         <button class="${est.tipo === 'entrada' ? 'ativo' : ''}" data-cat-tipo="entrada">Entrada</button>
         <button class="${est.tipo === 'saida' ? 'ativo' : ''}" data-cat-tipo="saida">Saída</button></div></div>`}
       <div class="grupo"><label for="cat-nome">Nome</label><input id="cat-nome" class="campo" maxlength="40" value="${esc(est.nome)}"></div>
-      <div class="grupo"><span class="rot">Natureza</span>
+      <div class="grupo"><span class="rot">Conta como</span>
         <div class="chips">${nat.map(n => `<button class="chip ${est.natureza === n[0] ? 'ativo' : ''}" data-cat-nat="${n[0]}">${n[1]}</button>`).join('')}</div>
         <p class="dica-nat" style="margin-top:10px">${esc(nat.find(n => n[0] === est.natureza)?.[2] || '')}</p>
       </div>
-      ${c ? `<p class="pequeno muted">${usos} lançamento${usos === 1 ? '' : 's'} nessa categoria.</p>` : ''}
+      ${est.excluindo ? `
+        <div class="grupo excluir-cat">
+          <span class="rot">Mover ${usos} lançamento${usos === 1 ? '' : 's'} para</span>
+          ${outras.length
+            ? `<div class="chips">${outras.map(x => `<button class="chip ${est.destino === x.id ? 'ativo' : ''}" data-cat-destino="${x.id}">${esc(x.nome)}</button>`).join('')}</div>`
+            : `<p class="dica-nat">Crie outra categoria de ${c.tipo === 'entrada' ? 'entrada' : 'saída'} primeiro, para receber esses lançamentos.</p>`}
+        </div>` : ''}
       <div class="acoes-form">
-        <button class="btn" id="cat-salvar">${c ? 'Salvar alterações' : 'Criar categoria'}</button>
-        ${c ? `<button class="btn sec" id="cat-arquivar">${est.ativa ? 'Arquivar (some da tela de lançamento)' : 'Reativar categoria'}</button>` : ''}
+        ${est.excluindo
+          ? `<button class="btn perigo" id="cat-excluir-ok" ${est.destino ? '' : 'disabled'}>Mover e excluir</button>
+             <button class="btn link" id="cat-excluir-nao" style="width:100%">Cancelar</button>`
+          : `<button class="btn" id="cat-salvar">${c ? 'Salvar alterações' : 'Criar categoria'}</button>
+             ${c ? '<button class="btn perigo" id="cat-excluir">Excluir categoria</button>' : ''}`}
       </div>`);
     $('#cat-nome').addEventListener('input', e => { est.nome = e.target.value; });
     $$('[data-cat-tipo]').forEach(b => b.addEventListener('click', () => {
       est.tipo = b.dataset.catTipo; est.natureza = NATUREZAS[est.tipo][0][0]; desenhar();
     }));
     $$('[data-cat-nat]').forEach(b => b.addEventListener('click', () => { est.natureza = b.dataset.catNat; desenhar(); }));
-    $('#cat-salvar').addEventListener('click', async () => {
+    $$('[data-cat-destino]').forEach(b => b.addEventListener('click', () => { est.destino = Number(b.dataset.catDestino); desenhar(); }));
+    $('#cat-salvar')?.addEventListener('click', async () => {
       const nome = est.nome.trim();
       if (!nome) return toast('Dê um nome para a categoria.', true);
       try {
-        if (c) Object.assign(c, await Api.editarCategoria(c.id, { nome, natureza: est.natureza }));
+        // ativa: true traz de volta categorias arquivadas na versão antiga
+        if (c) Object.assign(c, await Api.editarCategoria(c.id, { nome, natureza: est.natureza, ativa: true }));
         else S.categorias.push(await Api.criarCategoria({ nome, tipo: est.tipo, natureza: est.natureza }));
         fecharSheet(); render(); toast(c ? 'Categoria salva' : 'Categoria criada');
       } catch (e) { tratarErro(e); }
     });
-    $('#cat-arquivar')?.addEventListener('click', async () => {
-      try {
-        Object.assign(c, await Api.editarCategoria(c.id, { ativa: !c.ativa }));
-        fecharSheet(); render(); toast(c.ativa ? 'Categoria reativada' : 'Categoria arquivada');
-      } catch (e) { tratarErro(e); }
+    $('#cat-excluir')?.addEventListener('click', () => {
+      if (usos) { est.excluindo = true; return desenhar(); }
+      if (confirm(`Excluir a categoria “${c.nome}”?`)) excluirCategoria(c);
     });
+    $('#cat-excluir-nao')?.addEventListener('click', () => { est.excluindo = false; est.destino = null; desenhar(); });
+    $('#cat-excluir-ok')?.addEventListener('click', () => excluirCategoria(c, est.destino));
   };
   desenhar();
+}
+
+async function excluirCategoria(c, destino = null) {
+  try {
+    if (destino) {
+      await Api.moverCategoria(c.id, destino);
+      S.lancs.forEach(l => { if (l.categoria_id === c.id) l.categoria_id = destino; });
+      S.recorrentes.forEach(r => { if (r.categoria_id === c.id) r.categoria_id = destino; });
+    }
+    await Api.excluirCategoria(c.id);
+    S.categorias = S.categorias.filter(x => x.id !== c.id);
+    fecharSheet(); render(); toast('Categoria excluída');
+  } catch (e) { tratarErro(e); }
 }
 
 /* ---------- Recorrentes: telas ---------- */

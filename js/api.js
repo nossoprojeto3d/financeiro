@@ -133,6 +133,12 @@ const Api = (() => {
     excluirLancamento: id => rest(`lancamentos?id=eq.${id}`, { method: 'DELETE' }),
     criarCategoria: d => rest('categorias', { method: 'POST', body: d, ...volta }).then(r => r[0]),
     editarCategoria: (id, d) => rest(`categorias?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
+    excluirCategoria: id => rest(`categorias?id=eq.${id}`, { method: 'DELETE' }),
+    // Passa lançamentos e recorrentes de uma categoria para outra (antes de excluir)
+    moverCategoria: async (de, para) => {
+      await rest(`lancamentos?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } });
+      await rest(`recorrentes?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } });
+    },
 
     // V2: recorrentes
     recorrentes: () => rest('recorrentes?select=*&order=dia_mes'),
