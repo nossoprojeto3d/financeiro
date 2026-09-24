@@ -664,3 +664,5 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .nova-cat-btn { width: 100%; margin-top: 8px; color: var(--ouro); }
 .painel-cat .nova-cat { margin-top: 14px; border-radius: 18px; background: var(--bg); }
 .rot-nc { display: block; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--txt-4); margin: 14px 0 0; }
+.btn.confirmando { background: var(--sai); color: #1d100b; border-color: var(--sai); }
+.opcao.confirmando .dir { color: var(--sai); }

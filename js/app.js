@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.7.0';
+const VERSAO = '2.7.1';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -61,6 +61,20 @@ const perfil = id => S.perfis.find(p => p.id === id);
 function corCategoria(id) {
   const i = S.categorias.findIndex(c => c.id === id);
   return Charts.cor(i < 0 ? 0 : i);
+}
+
+/* ===================== Confirmação no próprio botão ===================== */
+// No lugar do confirm() do navegador: no iPhone instalado, a chamada ao banco
+// logo depois dessa janela pode falhar como "sem conexão". 1º toque arma, 2º confirma.
+function pedirSegundoToque(btn, texto, alvo = btn) {
+  if (btn.dataset.armado) return true;
+  const antes = alvo.innerHTML;
+  btn.dataset.armado = '1'; btn.classList.add('confirmando'); alvo.textContent = texto;
+  setTimeout(() => {
+    if (!btn.isConnected) return;
+    delete btn.dataset.armado; btn.classList.remove('confirmando'); alvo.innerHTML = antes;
+  }, 4000);
+  return false;
 }
 
 /* ===================== Toast ===================== */
@@ -683,9 +697,9 @@ async function salvarForm() {
   }
 }
 
-async function excluirForm() {
+async function excluirForm(btn) {
   const f = S.form;
-  if (!confirm(`Excluir este lançamento de ${fmt(f.centavos / 100)}? Não dá pra desfazer.`)) return;
+  if (!pedirSegundoToque(btn, 'Toque de novo para excluir')) return;
   try {
     await Api.excluirLancamento(f.id);
     S.lancs = S.lancs.filter(l => l.id !== f.id);
@@ -1218,9 +1232,9 @@ function abrirCategoria(c = null) {
         fecharSheet(); render(); toast(c ? 'Categoria salva' : 'Categoria criada');
       } catch (e) { tratarErro(e); }
     });
-    $('#cat-excluir')?.addEventListener('click', () => {
+    $('#cat-excluir')?.addEventListener('click', e => {
       if (usos) { est.excluindo = true; return desenhar(); }
-      if (confirm(`Excluir a categoria “${c.nome}”?`)) excluirCategoria(c);
+      if (pedirSegundoToque(e.currentTarget, 'Toque de novo para excluir')) excluirCategoria(c);
     });
     $('#cat-excluir-nao')?.addEventListener('click', () => { est.excluindo = false; est.destino = null; desenhar(); });
     $('#cat-excluir-ok')?.addEventListener('click', () => excluirCategoria(c, est.destino));
@@ -1302,8 +1316,8 @@ function abrirRecorrente(r) {
     const dados = r.ativa ? { ativa: false } : { ativa: true, gerado_ate: hoje() > (r.gerado_ate || '') ? hoje() : r.gerado_ate };
     atualizar(dados, r.ativa ? 'Pausado: não será mais lançado' : 'Retomado: volta no próximo vencimento');
   });
-  $('#r-excluir').addEventListener('click', async () => {
-    if (!confirm('Excluir esse lançamento mensal? O que já foi lançado continua no histórico.')) return;
+  $('#r-excluir').addEventListener('click', async e => {
+    if (!pedirSegundoToque(e.currentTarget, 'Toque de novo para excluir')) return;
     try {
       await Api.excluirRecorrente(r.id);
       S.recorrentes = S.recorrentes.filter(x => x.id !== r.id);
@@ -1457,7 +1471,7 @@ document.addEventListener('click', e => {
       return;
     case 'f-user': f.usuario_id = el.dataset.id; return marcar();
     case 'salvar': return salvarForm();
-    case 'excluir': return excluirForm();
+    case 'excluir': return excluirForm(el);
     case 'h-tipo': S.hist.tipo = el.dataset.v; S.hist.limite = 60; return render();
     case 'h-mais': S.hist.limite += 60; $('#h-res').innerHTML = histResultados(); return;
     case 'exportar': return exportarCSV();
@@ -1480,7 +1494,7 @@ document.addEventListener('click', e => {
     case 'recarregar':
       return carregarTudo().then(() => { render(); if (!S.offline) toast('Dados atualizados'); }).catch(tratarErro);
     case 'sair':
-      if (confirm('Sair da conta neste aparelho?')) { Lock.desativar(); Api.sair().then(() => telaLogin()); }
+      if (pedirSegundoToque(el, 'Toque de novo', el.querySelector('.dir') || el)) { Lock.desativar(); Api.sair().then(() => telaLogin()); }
       return;
   }
 });

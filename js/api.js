@@ -97,8 +97,14 @@ const Api = (() => {
     };
     if (prefer) headers.Prefer = prefer;
     if (range) { headers.Range = range; headers['Range-Unit'] = 'items'; }
-    const r = await chamar(`${C.SUPABASE_URL}/rest/v1/${caminho}`, {
+    const pedido = () => chamar(`${C.SUPABASE_URL}/rest/v1/${caminho}`, {
       method, headers, body: body ? JSON.stringify(body) : undefined
+    });
+    // Falha de rede: tenta mais uma vez (menos no POST, que poderia duplicar)
+    const r = await pedido().catch(async e => {
+      if (method === 'POST') throw e;
+      await new Promise(ok => setTimeout(ok, 700));
+      return pedido();
     });
     if (r.status === 401 && tentar) { await renovar(); return rest(caminho, { method, body, prefer, range }, false); }
     if (!r.ok) {
