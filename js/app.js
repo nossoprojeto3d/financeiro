@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.5.0';
+const VERSAO = '2.5.1';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -491,25 +491,28 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
     <div class="grupo"><span class="rot">Categoria</span><div id="f-cats"></div></div>
 
     <div class="grupo">
+      <label for="f-desc">Descrição</label>
+      <input id="f-desc" class="campo" maxlength="120" value="${esc(f.descricao)}"
+        placeholder="${f.tipo === 'entrada' ? 'Ex.: pedido Shopee #1234' : 'Ex.: 3 rolos PLA preto'}">
+    </div>
+
+    <details class="mais" ${f.repetir || f.data !== hoje() || (f.id && (f.forma_pagamento || f.usuario_id !== S.perfil.id)) ? 'open' : ''}>
+    <summary>Mais detalhes</summary>
+    <div class="grupo">
       <span class="rot">Data</span>
       <div class="linha-data">
         <button class="chip ${f.data === hoje() ? 'ativo' : ''}" data-acao="f-data" data-v="${hoje()}">Hoje</button>
         <button class="chip ${f.data === ontem() ? 'ativo' : ''}" data-acao="f-data" data-v="${ontem()}">Ontem</button>
         <input id="f-data" type="date" class="campo ${f.data !== hoje() && f.data !== ontem() ? 'on' : ''}" value="${f.data}" max="${hoje()}" aria-label="Outra data">
       </div>
-      ${f.id ? '' : `<button class="rep-chip ${f.repetir ? 'on' : ''}" data-acao="f-repetir" aria-pressed="${f.repetir}">
-        <svg viewBox="0 0 24 24"><path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/></svg>
-        <span id="f-rep-txt">${esc(textoRepetir(f))}</span>
-      </button>`}
     </div>
 
-    <details class="mais" ${f.id && (f.descricao || f.forma_pagamento || f.usuario_id !== S.perfil.id) ? 'open' : ''}>
-    <summary>Mais detalhes</summary>
-    <div class="grupo">
-      <label for="f-desc">Descrição</label>
-      <input id="f-desc" class="campo" maxlength="120" value="${esc(f.descricao)}"
-        placeholder="${f.tipo === 'entrada' ? 'Ex.: pedido Shopee #1234' : 'Ex.: 3 rolos PLA preto'}">
-    </div>
+    ${f.id ? '' : `<div class="grupo">
+      <button class="linha-toggle" data-acao="f-repetir" aria-pressed="${f.repetir}">
+        <span>Repetir todo mês<small id="f-rep-txt">${esc(textoRepetir(f))}</small></span>
+        <span class="toggle ${f.repetir ? 'on' : ''}"></span>
+      </button>
+    </div>`}
 
     <div class="grupo">
       <span class="rot">Forma de pagamento</span>
@@ -531,7 +534,7 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
     : ''}
 
     <div class="acoes-form">
-      <button class="btn ${f.tipo}" data-acao="salvar" id="f-salvar">${f.id ? 'Salvar alterações' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}</button>
+      <button class="btn ${f.tipo}" data-acao="salvar" id="f-salvar">${f.id ? 'Salvar alterações' : f.repetir ? 'Criar lançamento mensal' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}</button>
       ${f.id ? '<button class="btn perigo" data-acao="excluir">Excluir lançamento</button>' : ''}
     </div>`);
 
@@ -553,7 +556,7 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
 }
 
 function textoRepetir(f) {
-  return f.repetir ? `Repete todo dia ${deISO(f.data).getDate()}` : 'Repetir todo mês';
+  return f.repetir ? `Lança sozinho todo dia ${deISO(f.data).getDate()}` : 'Para assinaturas e contas do mês';
 }
 
 function renderCatsForm() {
@@ -1388,7 +1391,7 @@ document.addEventListener('click', e => {
     case 'f-repetir':
       f.repetir = !f.repetir;
       el.setAttribute('aria-pressed', f.repetir);
-      el.classList.toggle('on', f.repetir);
+      el.querySelector('.toggle').classList.toggle('on', f.repetir);
       $('#f-rep-txt').textContent = textoRepetir(f);
       $('#f-salvar').textContent = f.repetir ? 'Criar lançamento mensal' : (f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída');
       return;

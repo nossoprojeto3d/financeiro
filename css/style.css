@@ -591,7 +591,7 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .sheet {
   background: linear-gradient(180deg, var(--card-2), var(--card) 40%);
   border-radius: 28px 28px 0 0; box-shadow: 0 -20px 50px rgba(0, 0, 0, .4);
-  padding-left: 22px; padding-right: 22px;
+  padding-left: 22px; padding-right: 22px; padding-bottom: 0;
 }
 .sheet-fundo { background: rgba(0, 0, 0, .55); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
 .puxador { width: 44px; background: var(--borda-forte); opacity: .8; }
@@ -624,8 +624,9 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .mais[open] summary::after { transform: rotate(-135deg); margin-top: 4px; }
 /* Botão de lançar sempre à vista, na cor do tipo */
 .acoes-form {
-  position: sticky; bottom: 0; z-index: 2; margin: 22px -22px 0; padding: 14px 22px 0;
-  background: linear-gradient(180deg, transparent, var(--card) 30%);
+  position: sticky; bottom: 0; z-index: 2; margin: 22px -22px 0;
+  padding: 14px 22px calc(24px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, transparent, var(--card) 22%);
 }
 .btn { border-radius: 16px; }
 .btn.entrada { background: var(--ent); color: #10170d; box-shadow: 0 8px 24px rgba(143, 191, 127, .2); }
@@ -636,3 +637,4 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 /* Aviso rápido */
 .toast { border-radius: 999px; background: var(--card-2); color: var(--txt); border: 1px solid var(--borda-forte); box-shadow: 0 10px 30px rgba(0, 0, 0, .4); }
 .toast.erro { background: var(--card-2); color: var(--sai); border-color: #5a3226; }
+.mais .linha-toggle { background: var(--bg); border-color: var(--borda); border-radius: 16px; }
