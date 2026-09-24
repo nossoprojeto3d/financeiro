@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.4.1';
+const VERSAO = '2.5.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -491,17 +491,11 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
     <div class="grupo"><span class="rot">Categoria</span><div id="f-cats"></div></div>
 
     <div class="grupo">
-      <label for="f-desc">Descrição <span class="muted">(opcional)</span></label>
-      <input id="f-desc" class="campo" maxlength="120" value="${esc(f.descricao)}"
-        placeholder="${f.tipo === 'entrada' ? 'Ex.: pedido Shopee #1234' : 'Ex.: 3 rolos PLA preto'}">
-    </div>
-
-    <div class="grupo">
       <span class="rot">Data</span>
       <div class="linha-data">
         <button class="chip ${f.data === hoje() ? 'ativo' : ''}" data-acao="f-data" data-v="${hoje()}">Hoje</button>
         <button class="chip ${f.data === ontem() ? 'ativo' : ''}" data-acao="f-data" data-v="${ontem()}">Ontem</button>
-        <input id="f-data" type="date" class="campo" value="${f.data}" max="${hoje()}">
+        <input id="f-data" type="date" class="campo ${f.data !== hoje() && f.data !== ontem() ? 'on' : ''}" value="${f.data}" max="${hoje()}" aria-label="Outra data">
       </div>
       ${f.id ? '' : `<button class="rep-chip ${f.repetir ? 'on' : ''}" data-acao="f-repetir" aria-pressed="${f.repetir}">
         <svg viewBox="0 0 24 24"><path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/></svg>
@@ -509,8 +503,16 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
       </button>`}
     </div>
 
+    <details class="mais" ${f.id && (f.descricao || f.forma_pagamento || f.usuario_id !== S.perfil.id) ? 'open' : ''}>
+    <summary>Mais detalhes</summary>
     <div class="grupo">
-      <span class="rot">Forma de pagamento <span class="muted">(opcional)</span></span>
+      <label for="f-desc">Descrição</label>
+      <input id="f-desc" class="campo" maxlength="120" value="${esc(f.descricao)}"
+        placeholder="${f.tipo === 'entrada' ? 'Ex.: pedido Shopee #1234' : 'Ex.: 3 rolos PLA preto'}">
+    </div>
+
+    <div class="grupo">
+      <span class="rot">Forma de pagamento</span>
       <div class="chips" data-grupo="pag">
         ${PAGAMENTOS.map(p => `<button class="chip ${f.forma_pagamento === p ? 'ativo' : ''}" data-acao="f-pag" data-v="${esc(p)}">${esc(p)}</button>`).join('')}
       </div>
@@ -522,13 +524,14 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
         ${S.perfis.map(p => `<button class="chip ${f.usuario_id === p.id ? 'ativo' : ''}" data-acao="f-user" data-id="${p.id}">${esc(p.nome)}</button>`).join('')}
       </div>
     </div>
+    </details>
 
     ${f.id ? (f.recorrente_id && S.recorrentes.some(r => r.id === f.recorrente_id)
       ? `<p class="nota-rec">Esse lançamento se repete todo mês. Para mudar o valor dos próximos ou pausar, vá em Ajustes › Lançamentos que se repetem.</p>` : '')
     : ''}
 
     <div class="acoes-form">
-      <button class="btn" data-acao="salvar" id="f-salvar">${f.id ? 'Salvar alterações' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}</button>
+      <button class="btn ${f.tipo}" data-acao="salvar" id="f-salvar">${f.id ? 'Salvar alterações' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}</button>
       ${f.id ? '<button class="btn perigo" data-acao="excluir">Excluir lançamento</button>' : ''}
     </div>`);
 
@@ -544,6 +547,7 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
     f.data = e.target.value || hoje();
     if ($('#f-rep-txt')) $('#f-rep-txt').textContent = textoRepetir(f);
     $$('[data-acao="f-data"]').forEach(b => b.classList.toggle('ativo', b.dataset.v === f.data));
+    e.target.classList.toggle('on', f.data !== hoje() && f.data !== ontem());
   });
   if (!f.id) setTimeout(() => inp.focus(), 280);
 }
@@ -644,7 +648,7 @@ async function excluirForm() {
 function telaHistorico() {
   const h = S.hist;
   return `
-    <h1>Histórico</h1>
+    <h1 class="titulo-tela">Histórico</h1>
     <div class="busca">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
       <input class="campo" id="h-busca" type="search" placeholder="Buscar" value="${esc(h.busca)}">
@@ -679,9 +683,14 @@ function histResultados() {
   const vis = lista.slice(0, h.limite);
   let html = '', diaAtual = null;
   vis.forEach(l => {
-    if (l.data !== diaAtual) { diaAtual = l.data; html += `<div class="dia-h">${esc(dataBonita(l.data))}</div>`; }
+    if (l.data !== diaAtual) {
+      if (diaAtual) html += '</div>';
+      diaAtual = l.data;
+      html += `<div class="dia-h">${esc(dataBonita(l.data))}</div><div class="bloco-lista">`;
+    }
     html += itemHist(l);
   });
+  if (diaAtual) html += '</div>';
   const total = soma(lista.filter(l => l.tipo === 'entrada')) - soma(lista.filter(l => l.tipo === 'saida'));
   const resumo = q
     ? `${lista.length} resultado${lista.length === 1 ? '' : 's'}${lista.length ? ` · ${h.tipo === 'saida' ? '' : total >= 0 ? '+' : '−'}${esc(fmt(Math.abs(total)))}` : ''}`
@@ -1055,7 +1064,7 @@ function telaAjustes() {
     t, lista: S.categorias.filter(c => c.tipo === t).sort((a, b) => b.ativa - a.ativa || a.nome.localeCompare(b.nome))
   }));
   return `
-    <h1>Ajustes</h1>
+    <h1 class="titulo-tela">Ajustes</h1>
     <section class="secao">
       <div class="bloco">
         <div class="perfil-linha">
@@ -1364,7 +1373,7 @@ document.addEventListener('click', e => {
     case 'f-nova-cat': f.novaCat = f.novaCat ? null : { nome: '', natureza: NATUREZAS[f.tipo][0][0] }; return renderCatsForm();
     case 'nc-nat': f.novaCat.natureza = el.dataset.v; return renderCatsForm();
     case 'nc-criar': return criarCategoriaForm();
-    case 'f-data': f.data = el.dataset.v; $('#f-data').value = f.data;
+    case 'f-data': f.data = el.dataset.v; $('#f-data').value = f.data; $('#f-data').classList.remove('on');
       return $$('[data-acao="f-data"]').forEach(b => b.classList.toggle('ativo', b === el));
     case 'f-pag':
       if (f.forma_pagamento === el.dataset.v) { f.forma_pagamento = ''; el.classList.remove('ativo'); }
