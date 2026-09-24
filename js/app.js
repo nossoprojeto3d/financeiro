@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.6.0';
+const VERSAO = '2.7.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -450,6 +450,7 @@ let sheetT;
 function abrirSheet(html) {
   clearTimeout(sheetT);
   const sh = $('#sheet'), fundo = $('#sheet-fundo');
+  sh.classList.remove('modo-cat');
   sh.innerHTML = `<div class="puxador"></div>${html}`;
   sh.hidden = false; fundo.hidden = false;
   sh.scrollTop = 0;
@@ -457,7 +458,7 @@ function abrirSheet(html) {
 }
 function fecharSheet() {
   const sh = $('#sheet'), fundo = $('#sheet-fundo');
-  sh.classList.remove('aberto'); fundo.classList.remove('aberto');
+  sh.classList.remove('aberto', 'modo-cat'); fundo.classList.remove('aberto');
   sheetT = setTimeout(() => { sh.hidden = true; fundo.hidden = true; sh.innerHTML = ''; }, 260);
   S.form = null;
 }
@@ -481,6 +482,7 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
   const titulo = f.id ? 'Editar lançamento' : f.tipo === 'entrada' ? 'Nova entrada' : 'Nova saída';
 
   abrirSheet(`
+    <div class="form-corpo">
     <div class="sheet-topo">
       <div><span class="tipo-tag ${f.tipo}">${f.tipo === 'entrada' ? 'Entrada' : 'Saída'}</span><h2>${titulo}</h2></div>
       <button class="fechar" data-acao="fechar" aria-label="Fechar">×</button>
@@ -536,9 +538,17 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
     <div class="acoes-form">
       <button class="btn ${f.tipo}" data-acao="salvar" id="f-salvar">${f.id ? 'Salvar alterações' : f.repetir ? 'Criar lançamento mensal' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}</button>
       ${f.id ? '<button class="btn perigo" data-acao="excluir">Excluir lançamento</button>' : ''}
-    </div>`);
+    </div>
+    </div>
+    <div id="f-cat-painel" class="painel-cat"></div>`);
 
   renderCatsForm();
+  // Ao abrir "Mais detalhes", rola até os campos (senão ficam escondidos embaixo)
+  $('.mais').addEventListener('toggle', e => {
+    if (!e.target.open) return;
+    const sh = $('#sheet'), alvo = e.target;
+    setTimeout(() => sh.scrollTo({ top: alvo.offsetTop - 16, behavior: 'smooth' }), 30);
+  });
   const inp = $('#f-valor');
   inp.addEventListener('input', () => {
     const dig = inp.value.replace(/\D/g, '').slice(0, 11);
@@ -561,27 +571,63 @@ function textoRepetir(f) {
 
 function renderCatsForm() {
   const f = S.form; if (!f) return;
-  const lista = categoriasOrdenadas(f.tipo, f.categoria_id);
-  const nat = NATUREZAS[f.tipo];
+  const c = cat(f.categoria_id);
   $('#f-cats').innerHTML = `
-    <div class="chips" data-grupo="cat">
-      ${lista.map(c => `<button class="chip ${f.categoria_id === c.id ? 'ativo' : ''}" data-acao="f-cat" data-id="${c.id}">${esc(c.nome)}</button>`).join('')}
-      <button class="chip tracejado" data-acao="f-nova-cat">+ Nova categoria</button>
+    <button class="seletor-cat ${c ? '' : 'vazio'}" data-acao="f-cat-abrir">
+      ${c ? `<span class="ponto" style="background:${corCategoria(c.id)}"></span>` : ''}
+      <span class="meio"><b>${esc(c ? c.nome : 'Escolher categoria')}</b>${c ? `<small>${esc(nomeNatureza(c.natureza))}</small>` : ''}</span>
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+    </button>`;
+  renderPainelCats();
+}
+
+// Lista de categorias que ocupa o painel no lugar do formulário
+function renderPainelCats() {
+  const f = S.form, painel = $('#f-cat-painel'); if (!f || !painel) return;
+  const lista = categoriasOrdenadas(f.tipo);
+  const nat = NATUREZAS[f.tipo];
+  painel.innerHTML = `
+    <div class="sheet-topo">
+      <button class="voltar" data-acao="f-cat-fechar" aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+      <h2>Categoria</h2>
+      <span style="width:34px"></span>
+    </div>
+    ${lista.length > 7 ? `<div class="busca"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
+      <input class="campo" id="fc-busca" type="search" placeholder="Buscar categoria"></div>` : ''}
+    <div class="bloco-lista lista-cat">
+      ${lista.map(c => `
+        <button class="item ${f.categoria_id === c.id ? 'escolhida' : ''}" data-acao="f-cat" data-id="${c.id}" data-nome="${esc(c.nome.toLowerCase())}">
+          <span class="ponto" style="background:${corCategoria(c.id)}"></span>
+          <span class="meio"><span class="titulo">${esc(c.nome)}</span><span class="sub">${esc(nomeNatureza(c.natureza))}</span></span>
+          ${f.categoria_id === c.id ? '<svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}
+        </button>`).join('')}
     </div>
     ${f.novaCat ? `
       <div class="nova-cat">
         <input id="nc-nome" class="campo" maxlength="40" placeholder="Nome da categoria" value="${esc(f.novaCat.nome)}">
+        <span class="rot-nc">Conta como</span>
         <div class="chips" data-grupo="nat">
           ${nat.map(n => `<button class="chip ${f.novaCat.natureza === n[0] ? 'ativo' : ''}" data-acao="nc-nat" data-v="${n[0]}">${n[1]}</button>`).join('')}
         </div>
         <p class="dica-nat">${esc(nat.find(n => n[0] === f.novaCat.natureza)[2])}</p>
-        <button class="btn sec" data-acao="nc-criar">Criar e usar</button>
-      </div>` : ''}`;
+        <button class="btn" data-acao="nc-criar">Criar e usar</button>
+      </div>` : `<button class="btn link nova-cat-btn" data-acao="f-nova-cat">+ Nova categoria</button>`}`;
+  $('#fc-busca')?.addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    $$('.lista-cat .item').forEach(b => { b.hidden = !!q && !b.dataset.nome.includes(q); });
+  });
   if (f.novaCat) {
     const i = $('#nc-nome');
     i.addEventListener('input', e => { f.novaCat.nome = e.target.value; });
     i.focus();
   }
+}
+
+function abrirPainelCat(abrir) {
+  const sh = $('#sheet');
+  sh.classList.toggle('modo-cat', abrir);
+  sh.scrollTop = 0;
+  if (!abrir && S.form) { S.form.novaCat = null; renderCatsForm(); }
 }
 
 async function criarCategoriaForm() {
@@ -590,13 +636,13 @@ async function criarCategoriaForm() {
   const existe = S.categorias.find(c => c.tipo === f.tipo && c.nome.toLowerCase() === nome.toLowerCase());
   if (existe) {
     if (!existe.ativa) { const r = await Api.editarCategoria(existe.id, { ativa: true }); Object.assign(existe, r); }
-    f.categoria_id = existe.id; f.novaCat = null; renderCatsForm(); return;
+    f.categoria_id = existe.id; f.novaCat = null; abrirPainelCat(false); return;
   }
   try {
     const nova = await Api.criarCategoria({ nome, tipo: f.tipo, natureza: f.novaCat.natureza });
     S.categorias.push(nova);
     f.categoria_id = nova.id; f.novaCat = null;
-    renderCatsForm();
+    abrirPainelCat(false);
     toast(`Categoria “${nome}” criada`);
   } catch (e) { tratarErro(e); }
 }
@@ -604,7 +650,7 @@ async function criarCategoriaForm() {
 async function salvarForm() {
   const f = S.form;
   if (!f.centavos) { toast('Digite o valor.', true); $('#f-valor').focus(); return; }
-  if (!f.categoria_id) { toast('Escolha uma categoria.', true); return; }
+  if (!f.categoria_id) { toast('Escolha uma categoria.', true); abrirPainelCat(true); return; }
   const dados = {
     tipo: f.tipo, valor: f.centavos / 100, categoria_id: f.categoria_id, data: f.data,
     descricao: f.descricao.trim() || null, forma_pagamento: f.forma_pagamento || null, usuario_id: f.usuario_id
@@ -1397,9 +1443,11 @@ document.addEventListener('click', e => {
       return l && abrirForm(l.tipo, l);
     }
     case 'fechar': return fecharSheet();
-    case 'f-cat': f.categoria_id = Number(el.dataset.id); f.novaCat = null; return renderCatsForm();
-    case 'f-nova-cat': f.novaCat = f.novaCat ? null : { nome: '', natureza: NATUREZAS[f.tipo][0][0] }; return renderCatsForm();
-    case 'nc-nat': f.novaCat.natureza = el.dataset.v; return renderCatsForm();
+    case 'f-cat': f.categoria_id = Number(el.dataset.id); return abrirPainelCat(false);
+    case 'f-cat-abrir': return abrirPainelCat(true);
+    case 'f-cat-fechar': return abrirPainelCat(false);
+    case 'f-nova-cat': f.novaCat = f.novaCat ? null : { nome: '', natureza: NATUREZAS[f.tipo][0][0] }; return renderPainelCats();
+    case 'nc-nat': f.novaCat.natureza = el.dataset.v; return renderPainelCats();
     case 'nc-criar': return criarCategoriaForm();
     case 'f-data': f.data = el.dataset.v; $('#f-data').value = f.data; $('#f-data').classList.remove('on');
       return $$('[data-acao="f-data"]').forEach(b => b.classList.toggle('ativo', b === el));

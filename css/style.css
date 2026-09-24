@@ -638,3 +638,29 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .toast { border-radius: 999px; background: var(--card-2); color: var(--txt); border: 1px solid var(--borda-forte); box-shadow: 0 10px 30px rgba(0, 0, 0, .4); }
 .toast.erro { background: var(--card-2); color: var(--sai); border-color: #5a3226; }
 .mais .linha-toggle { background: var(--bg); border-color: var(--borda); border-radius: 16px; }
+
+/* ---------- V2.7: categoria numa linha só + lista própria ---------- */
+.seletor-cat {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left;
+  padding: 14px 14px 14px 16px; border-radius: 16px; background: var(--bg); border: 1px solid var(--borda-forte);
+}
+.seletor-cat .ponto { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.seletor-cat .meio { flex: 1; min-width: 0; }
+.seletor-cat b { display: block; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.seletor-cat small { display: block; font-size: .78rem; color: var(--txt-4); }
+.seletor-cat.vazio b { color: var(--txt-3); font-weight: 400; }
+.seletor-cat svg, .voltar svg, .lista-cat .check { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.seletor-cat svg { color: var(--txt-4); }
+.painel-cat { display: none; padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+.sheet.modo-cat .form-corpo { display: none; }
+.sheet.modo-cat .painel-cat { display: block; animation: entra .25s cubic-bezier(.2, .8, .2, 1) both; }
+.voltar { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: var(--bg); border: 1px solid var(--borda); color: var(--txt-2); }
+.painel-cat .sheet-topo h2 { flex: 1; text-align: center; }
+.painel-cat .busca { margin: 12px 0; }
+.lista-cat { margin-top: 12px; }
+.lista-cat .item .ponto { width: 10px; height: 10px; }
+.lista-cat .item.escolhida .titulo { color: var(--ouro-claro); }
+.lista-cat .check { color: var(--ouro); }
+.nova-cat-btn { width: 100%; margin-top: 8px; color: var(--ouro); }
+.painel-cat .nova-cat { margin-top: 14px; border-radius: 18px; background: var(--bg); }
+.rot-nc { display: block; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--txt-4); margin: 14px 0 0; }
