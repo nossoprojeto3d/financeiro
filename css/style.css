@@ -195,12 +195,12 @@ h2 { font-size: 1.2rem; }
 }
 .nav button {
   position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
-  padding: 4px 0; color: var(--txt-4); font-size: .7rem; font-weight: 500; transition: color .2s;
+  padding: 6px 0 5px; color: var(--txt-4); font-size: .7rem; font-weight: 500; transition: color .2s;
 }
 .nav button::before { /* marcador dourado atrás do ícone da aba ativa */
-  content: ''; position: absolute; top: 1px; left: 50%; width: 54px; height: 30px; margin-left: -27px;
-  border-radius: 999px; background: rgba(201, 162, 39, .14);
-  transform: scale(.5); opacity: 0; transition: transform .25s cubic-bezier(.2, .8, .2, 1), opacity .2s;
+  content: ''; position: absolute; inset: 0 7px; max-width: 84px; margin: 0 auto;
+  border-radius: 16px; background: rgba(201, 162, 39, .12); border: 1px solid rgba(201, 162, 39, .16);
+  transform: scale(.85); opacity: 0; transition: transform .25s cubic-bezier(.2, .8, .2, 1), opacity .2s;
 }
 .nav button.ativo::before { transform: scale(1); opacity: 1; }
 .nav svg { position: relative; width: 24px; height: 24px; margin: 2px 0; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
