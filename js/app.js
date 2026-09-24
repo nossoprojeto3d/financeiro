@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.1.3';
+const VERSAO = '2.1.4';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -1009,7 +1009,7 @@ function telaAjustes() {
       </div>
     </section>
 
-    <p class="rodape">Caixa · Nosso Projeto 3D · versão ${VERSAO}</p>`;
+    <p class="rodape">Caixa · Nosso Projeto 3D · versão ${VERSAO}<br><small>${screen.height} · ${innerHeight} · ${getComputedStyle(document.documentElement).getPropertyValue('--folga-baixo').trim()}</small></p>`;
 }
 
 function abrirCategoria(c = null) {
@@ -1331,6 +1331,19 @@ document.addEventListener('visibilitychange', () => {
 });
 
 /* ===================== Início do app ===================== */
+// Alguns iPhones, com o app instalado na tela de início, deixam a área útil
+// mais curta que a tela e a barra de baixo fica "flutuando". Mede a sobra e
+// empurra a barra (e os formulários) até o fim da tela.
+function ajustarFolgaBaixo() {
+  const sobra = navigator.standalone && innerHeight < innerWidth * 3
+    ? Math.round(screen.height - innerHeight) : 0;
+  const folga = sobra > 0 && sobra < 100 ? sobra : 0;
+  document.documentElement.style.setProperty('--folga-baixo', folga + 'px');
+}
+ajustarFolgaBaixo();
+addEventListener('resize', ajustarFolgaBaixo);
+addEventListener('orientationchange', () => setTimeout(ajustarFolgaBaixo, 300));
+
 function iniciar() {
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js').catch(() => {});
