@@ -704,3 +704,15 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .pp-vazio div { display: flex; gap: 6px; flex: none; }
 .pp-novo { padding: 6px 11px; border-radius: 999px; border: 1px solid var(--borda-forte); background: var(--bg); font-size: .8rem; color: var(--ouro-claro); }
 
+
+/* ---------- V2.9: ordem manual das categorias ---------- */
+.cat-linha { position: relative; display: flex; align-items: center; border-bottom: 1px solid var(--borda); background: transparent; }
+.cat-linha:last-child { border-bottom: 0; }
+.cat-linha .opcao { flex: 1; min-width: 0; border-bottom: 0; }
+.alca { display: grid; place-items: center; width: 36px; height: 44px; margin-left: -8px; color: var(--txt-4); touch-action: none; cursor: grab; flex: none; }
+.alca svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.cat-linha.arrastando {
+  z-index: 5; border-radius: 14px; border-color: transparent;
+  background: var(--card-2); box-shadow: 0 10px 28px rgba(0, 0, 0, .45), 0 0 0 1px rgba(201, 162, 39, .35);
+}
+.cat-linha.arrastando .alca { color: var(--ouro); cursor: grabbing; }

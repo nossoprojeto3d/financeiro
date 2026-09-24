@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.8.0';
+const VERSAO = '2.9.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -285,7 +285,7 @@ let syncT = null, sincronizando = false;
 function assinatura(lancs, cats) {
   const ult = lancs.reduce((m, l) => (String(l.atualizado_em || '') > m ? String(l.atualizado_em || '') : m), '');
   const maxId = lancs.reduce((m, l) => Math.max(m, l.id), 0);
-  return `${lancs.length}|${maxId}|${ult}|${cats.map(c => `${c.id}:${c.nome}:${c.natureza}:${c.ativa}`).join(',')}`;
+  return `${lancs.length}|${maxId}|${ult}|${cats.map(c => `${c.id}:${c.nome}:${c.natureza}:${c.ordem}`).join(',')}`;
 }
 
 function iniciarSync() {
@@ -295,7 +295,7 @@ function iniciarSync() {
 
 async function sincronizar() {
   // Não atualiza no meio de um lançamento ou edição, nem com o app em segundo plano
-  if (sincronizando || document.hidden || $('#shell').hidden || S.form || !$('#sheet').hidden) return;
+  if (sincronizando || S.arrastando || document.hidden || $('#shell').hidden || S.form || !$('#sheet').hidden) return;
   sincronizando = true;
   try {
     await gerarRecorrentes();
@@ -306,7 +306,7 @@ async function sincronizar() {
     S.offline = false;
     S.carregadoEm = Date.now();
     if (assinatura(novosLancs, c) === assinatura(S.lancs, S.categorias)) return;
-    if (S.form || !$('#sheet').hidden) return; // abriu um formulário enquanto buscava
+    if (S.form || S.arrastando || !$('#sheet').hidden) return; // abriu um formulário ou está arrastando
 
     const antes = new Set(S.lancs.map(x => x.id));
     const deOutros = novosLancs.filter(x => !antes.has(x.id) && x.usuario_id !== S.perfil.id);
@@ -359,6 +359,51 @@ function irPara(tela) {
 function render() {
   const telas = { inicio: telaInicio, historico: telaHistorico, gestao: telaGestao, ajustes: telaAjustes };
   $('#main').innerHTML = telas[S.tela]();
+  if (S.tela === 'ajustes') $$('.lista-ordem').forEach(ativarArraste);
+}
+
+/* ===================== Ordem das categorias (arrastar) ===================== */
+// Segura a alça e arrasta: a linha troca de lugar com a vizinha ao passar da metade dela.
+function ativarArraste(bloco) {
+  $$('.alca', bloco).forEach(alca => alca.addEventListener('pointerdown', e => {
+    const linha = alca.closest('.cat-linha');
+    e.preventDefault();
+    try { alca.setPointerCapture(e.pointerId); } catch (_) {} // no toque, o navegador já prende o dedo à alça
+    S.arrastando = true;
+    let base = e.clientY;
+    const antes = [...bloco.children].map(x => x.dataset.id).join();
+    linha.classList.add('arrastando');
+    const mover = ev => {
+      let dy = ev.clientY - base;
+      const prox = linha.nextElementSibling, ant = linha.previousElementSibling;
+      if (prox && dy > prox.offsetHeight / 2) { prox.after(linha); base += prox.offsetHeight; }
+      else if (ant && dy < -ant.offsetHeight / 2) { ant.before(linha); base -= ant.offsetHeight; }
+      dy = ev.clientY - base;
+      linha.style.transform = `translateY(${dy}px)`;
+    };
+    const soltar = () => {
+      alca.removeEventListener('pointermove', mover);
+      alca.removeEventListener('pointerup', soltar);
+      alca.removeEventListener('pointercancel', soltar);
+      linha.classList.remove('arrastando');
+      linha.style.transform = '';
+      S.arrastando = false;
+      const ids = [...bloco.children].map(x => Number(x.dataset.id));
+      if (ids.join() !== antes) salvarOrdem(ids);
+    };
+    alca.addEventListener('pointermove', mover);
+    alca.addEventListener('pointerup', soltar);
+    alca.addEventListener('pointercancel', soltar);
+  }));
+}
+
+async function salvarOrdem(ids) {
+  const mudou = ids.map((id, i) => ({ c: cat(id), ordem: i + 1 })).filter(x => x.c && x.c.ordem !== x.ordem);
+  mudou.forEach(x => { x.c.ordem = x.ordem; });
+  try {
+    await Promise.all(mudou.map(x => Api.editarCategoria(x.c.id, { ordem: x.ordem })));
+    toast('Ordem salva');
+  } catch (e) { tratarErro(e); carregarTudo().then(render).catch(() => {}); }
 }
 
 /* ===================== Início ===================== */
@@ -486,12 +531,18 @@ function fecharSheet() {
   S.form = null;
 }
 
-function categoriasOrdenadas(tipo, incluirId) {
+// Ordem manual (coluna "ordem", do v2-ordem.sql). Sem ela no banco, as mais usadas primeiro.
+const temOrdem = () => S.categorias.some(c => 'ordem' in c);
+const porOrdem = (a, b) => (a.ordem ?? 1e9) - (b.ordem ?? 1e9) || a.nome.localeCompare(b.nome);
+const proximaOrdem = tipo => temOrdem()
+  ? { ordem: Math.max(0, ...S.categorias.filter(c => c.tipo === tipo).map(c => c.ordem || 0)) + 1 } : {};
+
+function categoriasOrdenadas(tipo) {
+  const lista = S.categorias.filter(c => c.tipo === tipo);
+  if (temOrdem()) return lista.sort(porOrdem);
   const uso = {};
   S.lancs.forEach(l => { uso[l.categoria_id] = (uso[l.categoria_id] || 0) + 1; });
-  return S.categorias
-    .filter(c => c.tipo === tipo)
-    .sort((a, b) => (uso[b.id] || 0) - (uso[a.id] || 0) || a.nome.localeCompare(b.nome));
+  return lista.sort((a, b) => (uso[b.id] || 0) - (uso[a.id] || 0) || a.nome.localeCompare(b.nome));
 }
 
 function abrirForm(tipo, lanc = null, opcoes = {}) {
@@ -662,7 +713,7 @@ async function criarCategoriaForm() {
     f.categoria_id = existe.id; f.novaCat = null; abrirPainelCat(false); return;
   }
   try {
-    const nova = await Api.criarCategoria({ nome, tipo: f.tipo, natureza: f.novaCat.natureza });
+    const nova = await Api.criarCategoria({ nome, tipo: f.tipo, natureza: f.novaCat.natureza, ...proximaOrdem(f.tipo) });
     S.categorias.push(nova);
     f.categoria_id = nova.id; f.novaCat = null;
     abrirPainelCat(false);
@@ -1192,7 +1243,7 @@ function exportarCSV() {
 /* ===================== Ajustes ===================== */
 function telaAjustes() {
   const grupos = ['entrada', 'saida'].map(t => ({
-    t, lista: S.categorias.filter(c => c.tipo === t).sort((a, b) => b.ativa - a.ativa || a.nome.localeCompare(b.nome))
+    t, lista: S.categorias.filter(c => c.tipo === t).sort(temOrdem() ? porOrdem : (a, b) => a.nome.localeCompare(b.nome))
   }));
   return `
     <h1 class="titulo-tela">Ajustes</h1>
@@ -1230,15 +1281,18 @@ function telaAjustes() {
       <div class="secao-topo"><h2>Categorias</h2><button data-acao="cat-nova">+ Nova</button></div>
       ${grupos.map(g => `
         <p class="sub-titulo">${g.t === 'entrada' ? 'Entradas' : 'Saídas'}</p>
-        <div class="bloco" style="padding-top:2px;padding-bottom:2px">
+        <div class="bloco lista-ordem" data-tipo="${g.t}" style="padding-top:2px;padding-bottom:2px">
           ${g.lista.map(c => `
-            <button class="opcao" data-acao="cat-editar" data-id="${c.id}">
-              <span style="display:flex;align-items:center;gap:10px">
-                <span class="ponto" style="width:9px;height:9px;border-radius:50%;background:${corCategoria(c.id)}"></span>
-                <span>${esc(c.nome)}<small>${esc(nomeNatureza(c.natureza))}</small></span>
-              </span>
-              <span class="dir">Editar</span>
-            </button>`).join('')}
+            <div class="cat-linha" data-id="${c.id}">
+              ${temOrdem() ? `<span class="alca" aria-label="Arrastar para mudar a ordem"><svg viewBox="0 0 24 24"><path d="M5 8h14M5 12h14M5 16h14"/></svg></span>` : ''}
+              <button class="opcao" data-acao="cat-editar" data-id="${c.id}">
+                <span style="display:flex;align-items:center;gap:10px">
+                  <span class="ponto" style="width:9px;height:9px;border-radius:50%;background:${corCategoria(c.id)}"></span>
+                  <span>${esc(c.nome)}<small>${esc(nomeNatureza(c.natureza))}</small></span>
+                </span>
+                <span class="dir">Editar</span>
+              </button>
+            </div>`).join('')}
         </div>`).join('')}
     </section>
 
@@ -1296,7 +1350,7 @@ function abrirCategoria(c = null) {
       try {
         // ativa: true traz de volta categorias arquivadas na versão antiga
         if (c) Object.assign(c, await Api.editarCategoria(c.id, { nome, natureza: est.natureza, ativa: true }));
-        else S.categorias.push(await Api.criarCategoria({ nome, tipo: est.tipo, natureza: est.natureza }));
+        else S.categorias.push(await Api.criarCategoria({ nome, tipo: est.tipo, natureza: est.natureza, ...proximaOrdem(est.tipo) }));
         fecharSheet(); render(); toast(c ? 'Categoria salva' : 'Categoria criada');
       } catch (e) { tratarErro(e); }
     });

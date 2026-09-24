@@ -48,6 +48,9 @@ Controle de caixa e gestão financeira da empresa, em PWA. HTML/CSS/JS puro, sem
 
 Sem os passos 2 a 4, o app funciona normalmente e só o botão de IA avisa que falta instalar. Sem o passo 1, os lançamentos que se repetem não funcionam.
 
+### 5. Ordem das categorias (~1 min)
+No SQL Editor do Supabase, cole o arquivo `supabase/v2-ordem.sql` inteiro e clique em **Run**. Depois disso, em Ajustes, segure a alça (≡) de uma categoria e arraste para mudar a ordem. A lista na hora de lançar segue essa ordem.
+
 ## Observações
 
 - **IA e privacidade:** só vão para o Gemini os totais (vendas, gastos por categoria, canais, meses). Descrições dos lançamentos e nomes de clientes não são enviados. No plano grátis, o Google pode usar o que recebe para melhorar os produtos dele. Se um dia o modelo padrão mudar de nome, crie o segredo `GEMINI_MODEL` com o nome novo que aparece no AI Studio.
@@ -70,5 +73,6 @@ js/app.js           telas, lançamentos, gestão, recorrentes e IA
 sw.js               funcionamento offline / instalação
 supabase/setup.sql  tabelas, segurança e categorias iniciais
 supabase/v2.sql     lançamentos que se repetem (rodar depois do setup)
+supabase/v2-ordem.sql  ordem manual das categorias (rodar depois do v2)
 supabase/functions/analise/index.ts   função da IA (guarda a chave do Gemini)
 ```

@@ -1,7 +1,7 @@
 # Contexto do projeto: Caixa · Nosso Projeto 3D
 
 ## O que é
-PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 2.8.0.
+PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 2.9.0.
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
@@ -25,6 +25,7 @@ Fundo `#120E09`, cards `#17130D`, bordas `#241C12` / `#3A3226`, dourado `#C9A227
 - `sw.js`: service worker (rede primeiro, cache offline). **Ao publicar mudanças, suba o número em `CACHE`** e em `VERSAO` no `app.js`.
 - `supabase/setup.sql`: tabelas, segurança (RLS) e categorias iniciais.
 - `supabase/v2.sql`: lançamentos que se repetem (tabela `recorrentes` e função `gerar_recorrentes`).
+- `supabase/v2-ordem.sql`: coluna `ordem` nas categorias (ordem manual, arrastando em Ajustes). Sem ela, o app ordena pelas mais usadas.
 - `supabase/functions/analise/index.ts`: Edge Function que chama o Gemini. A chave fica no segredo `GEMINI_API_KEY` do Supabase.
 
 ## Banco (Supabase)
