@@ -23,7 +23,10 @@ const Api = (() => {
     if (/invalid login credentials/i.test(m)) return 'Senha incorreta. Confira e tente de novo.';
     if (/email not confirmed/i.test(m)) return 'E-mail ainda não confirmado no Supabase (marque "Auto Confirm User").';
     if (/refresh token/i.test(m)) return 'Sua sessão expirou. Entre com a senha de novo.';
-    if (/failed to fetch|networkerror|load failed/i.test(m)) return 'Sem conexão com a internet.';
+    if (/failed to fetch|networkerror|load failed/i.test(m)) {
+      return navigator.onLine === false ? 'Sem conexão com a internet.' : 'Não deu para falar com o servidor. Tente de novo.';
+    }
+    if (/foreign key/i.test(m)) return 'Ainda há lançamentos nessa categoria. Atualize os dados e tente de novo.';
     if (/row-level security/i.test(m)) return 'Sem permissão. Seu usuário tem perfil no banco? (passo 2 do setup.sql)';
     return m || 'Algo deu errado.';
   }
@@ -90,11 +93,8 @@ const Api = (() => {
   }
 
   async function rest(caminho, { method = 'GET', body, prefer, range } = {}, tentar = true) {
-    const headers = {
-      apikey: C.SUPABASE_KEY,
-      Authorization: `Bearer ${await token()}`,
-      'Content-Type': 'application/json'
-    };
+    const headers = { apikey: C.SUPABASE_KEY, Authorization: `Bearer ${await token()}` };
+    if (body) headers['Content-Type'] = 'application/json'; // só quando há corpo (DELETE vai sem)
     if (prefer) headers.Prefer = prefer;
     if (range) { headers.Range = range; headers['Range-Unit'] = 'items'; }
     const pedido = () => chamar(`${C.SUPABASE_URL}/rest/v1/${caminho}`, {

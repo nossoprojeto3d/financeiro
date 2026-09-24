@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.7.1';
+const VERSAO = '2.8.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -63,20 +63,6 @@ function corCategoria(id) {
   return Charts.cor(i < 0 ? 0 : i);
 }
 
-/* ===================== Confirmação no próprio botão ===================== */
-// No lugar do confirm() do navegador: no iPhone instalado, a chamada ao banco
-// logo depois dessa janela pode falhar como "sem conexão". 1º toque arma, 2º confirma.
-function pedirSegundoToque(btn, texto, alvo = btn) {
-  if (btn.dataset.armado) return true;
-  const antes = alvo.innerHTML;
-  btn.dataset.armado = '1'; btn.classList.add('confirmando'); alvo.textContent = texto;
-  setTimeout(() => {
-    if (!btn.isConnected) return;
-    delete btn.dataset.armado; btn.classList.remove('confirmando'); alvo.innerHTML = antes;
-  }, 4000);
-  return false;
-}
-
 /* ===================== Toast ===================== */
 let toastT;
 function toast(msg, erro = false) {
@@ -86,6 +72,29 @@ function toast(msg, erro = false) {
   t.classList.add('on');
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove('on'), erro ? 4200 : 2600);
+}
+
+/* ===================== Confirmação ===================== */
+// Diálogo próprio no lugar do confirm() do navegador: no app instalado no
+// iPhone, o confirm() nativo pode derrubar a requisição que vem logo depois.
+function confirmar(texto, { ok = 'Excluir', perigo = true } = {}) {
+  return new Promise(resolve => {
+    const d = document.createElement('div');
+    d.className = 'dialogo';
+    d.innerHTML = `<div class="dialogo-caixa" role="alertdialog" aria-modal="true">
+      <p>${esc(texto)}</p>
+      <div class="dialogo-acoes">
+        <button class="btn link" data-r="0">Cancelar</button>
+        <button class="btn ${perigo ? 'perigo' : ''}" data-r="1">${esc(ok)}</button>
+      </div></div>`;
+    const fim = r => { d.classList.remove('on'); setTimeout(() => d.remove(), 180); resolve(r); };
+    d.addEventListener('click', e => {
+      const b = e.target.closest('[data-r]');
+      if (b) fim(b.dataset.r === '1'); else if (e.target === d) fim(false);
+    });
+    document.body.appendChild(d);
+    requestAnimationFrame(() => d.classList.add('on'));
+  });
 }
 
 /* ===================== Porta (login, trava) ===================== */
@@ -697,9 +706,9 @@ async function salvarForm() {
   }
 }
 
-async function excluirForm(btn) {
+async function excluirForm() {
   const f = S.form;
-  if (!pedirSegundoToque(btn, 'Toque de novo para excluir')) return;
+  if (!await confirmar(`Excluir este lançamento de ${fmt(f.centavos / 100)}? Não dá pra desfazer.`)) return;
   try {
     await Api.excluirLancamento(f.id);
     S.lancs = S.lancs.filter(l => l.id !== f.id);
@@ -838,6 +847,8 @@ function analise(iv, ivAnt) {
     margem: n.venda > 0 ? operacional / n.venda : null,
     pesoVar: n.venda > 0 ? n.variavel / n.venda : null,
     depAporte: n.venda + n.aporte > 0 ? n.aporte / (n.venda + n.aporte) : null,
+    ent: soma(per.filter(l => l.tipo === 'entrada')),
+    sai: soma(per.filter(l => l.tipo === 'saida')),
     variacaoCaixa: soma(per.filter(l => l.tipo === 'entrada')) - soma(per.filter(l => l.tipo === 'saida')),
     vendasMes: n.venda / meses,
     fixaMes: n.fixa / meses,
@@ -847,7 +858,9 @@ function analise(iv, ivAnt) {
   r.equilibrio = r.mcPct > 0 ? r.fixaMes / r.mcPct : null;
   if (ivAnt) {
     const a = porNatureza(S.lancs.filter(l => noIntervalo(l, ivAnt)));
-    r.ant = { venda: a.venda, operacional: a.venda - a.variavel - a.fixa };
+    const la = S.lancs.filter(l => noIntervalo(l, ivAnt));
+    r.ant = { venda: a.venda, operacional: a.venda - a.variavel - a.fixa,
+      resultado: la.length ? soma(la.filter(l => l.tipo === 'entrada')) - soma(la.filter(l => l.tipo === 'saida')) : null };
     if (a.venda > 0) r.cresc = (n.venda - a.venda) / a.venda;
   }
   r.caixa = soma(S.lancs.filter(l => l.tipo === 'entrada')) - soma(S.lancs.filter(l => l.tipo === 'saida'));
@@ -944,11 +957,71 @@ function mesesGrafico(iv) {
   return meses;
 }
 
+const MESES_LONGOS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+
+// "1 – 24 de setembro", "agosto de 2026", "jul – set 2026"
+function rotuloPeriodo(iv) {
+  let de = iv.de;
+  if (de === '0000-01-01') {
+    if (!S.lancs.length) return 'Todo o histórico';
+    de = S.lancs.reduce((m, l) => (l.data < m ? l.data : m), iv.ate);
+  }
+  const a = deISO(de), b = deISO(iv.ate), anoAtual = new Date().getFullYear();
+  const mesmoMes = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+  const fimDoMes = b.getDate() === new Date(b.getFullYear(), b.getMonth() + 1, 0).getDate();
+  if (mesmoMes) {
+    const ano = b.getFullYear() !== anoAtual ? ` de ${b.getFullYear()}` : '';
+    if (a.getDate() === 1 && fimDoMes) return `${MESES_LONGOS[b.getMonth()]}${ano || ` de ${b.getFullYear()}`}`;
+    return `${a.getDate() === b.getDate() ? '' : a.getDate() + ' – '}${b.getDate()} de ${MESES_LONGOS[b.getMonth()]}${ano}`;
+  }
+  if (a.getFullYear() === b.getFullYear()) return `${MESES[a.getMonth()]} – ${MESES[b.getMonth()]} ${b.getFullYear()}`;
+  return `${MESES[a.getMonth()]} ${a.getFullYear()} – ${MESES[b.getMonth()]} ${b.getFullYear()}`;
+}
+
+// Cartão do topo: resultado do período, entradas x saídas e a saúde da empresa
+function painelPeriodo(a) {
+  const ent = a ? a.ent : 0, sai = a ? a.sai : 0, res = ent - sai;
+  const tot = ent + sai;
+  const cor = !tot ? 'var(--txt)' : res >= 0 ? 'var(--ent)' : 'var(--sai)';
+  const antes = a?.ant?.resultado;
+  let delta = '';
+  if (antes != null && antes !== 0 && tot) {
+    const v = (res - antes) / Math.abs(antes);
+    if (Math.abs(v) >= 0.005) delta = `<span class="pp-delta ${v > 0 ? 'sobe' : 'desce'}">${v > 0 ? '▲' : '▼'} ${Math.abs(Math.round(v * 100))}%<small> vs anterior</small></span>`;
+  }
+  return `
+    <section class="painel-periodo">
+      <div class="pp-topo"><span>Resultado do período</span>${delta}</div>
+      <div class="pp-valor" style="color:${cor}">${res < 0 ? '− ' : tot ? '+ ' : ''}${esc(fmt(Math.abs(res)))}</div>
+      <div class="pp-barra" aria-hidden="true">
+        ${tot ? `<i style="width:${ent / tot * 100}%;background:var(--ent)"></i><i style="width:${sai / tot * 100}%;background:var(--sai)"></i>` : ''}
+      </div>
+      <div class="pp-leg">
+        <span><i style="background:var(--ent)"></i>Entradas <b>${esc(fmt(ent))}</b></span>
+        <span><i style="background:var(--sai)"></i>Saídas <b>${esc(fmt(sai))}</b></span>
+      </div>
+      ${a ? `
+      <div class="pp-saude">
+        ${Charts.anel(a.nota, a.status[1])}
+        <div><strong style="color:${a.status[1]}">${a.status[0]}<em>nota ${a.nota} de 100</em></strong><span>${a.status[2]}</span></div>
+      </div>` : `
+      <div class="pp-vazio">
+        <span>Nenhum lançamento nesse período.</span>
+        <div><button class="pp-novo" data-acao="novo" data-tipo="entrada">+ Entrada</button><button class="pp-novo" data-acao="novo" data-tipo="saida">+ Saída</button></div>
+      </div>`}
+    </section>`;
+}
+
 function telaGestao() {
   const f = S.filtros;
   const iv = intervalo(f), ivAnt = intervaloAnterior(f, iv);
   const a = analise(iv, ivAnt);
 
+  const topo = `
+    <div class="g-topo">
+      <span class="g-periodo">${esc(rotuloPeriodo(iv))}</span>
+      <h1 class="titulo-tela">Gestão</h1>
+    </div>`;
   const periodos = `
     <div class="chips rolar periodos">
       ${PERIODOS.map(([v, r]) => `<button class="chip ${f.periodo === v ? 'ativo' : ''}" data-acao="g-periodo" data-v="${v}">${r}</button>`).join('')}
@@ -957,8 +1030,7 @@ function telaGestao() {
       <input type="date" data-filtro="de" value="${esc(f.de)}" aria-label="De">
       <input type="date" data-filtro="ate" value="${esc(f.ate)}" aria-label="Até"></div>` : ''}`;
 
-  if (!a) return `<h1 class="titulo-tela">Gestão</h1>${periodos}
-    <div class="vazio"><strong>Sem lançamentos nesse período</strong>Escolha outro período acima.</div>`;
+  if (!a) return `${topo}${periodos}${painelPeriodo(null)}`;
 
   const n = a.n;
   const meses = mesesGrafico(iv);
@@ -1015,13 +1087,9 @@ function telaGestao() {
   });
 
   return `
-    <h1 class="titulo-tela">Gestão</h1>
+    ${topo}
     ${periodos}
-
-    <div class="saude-topo">
-      ${Charts.anel(a.nota, a.status[1])}
-      <div><strong style="color:${a.status[1]}">${a.status[0]}</strong><span>${a.status[2]}</span><small class="nota-exp">Nota ${a.nota} de 100 para a saúde da empresa</small></div>
-    </div>
+    ${painelPeriodo(a)}
 
     <section class="bloco-g">
       <div class="cab"><span>Como fechou o período</span></div>
@@ -1232,9 +1300,9 @@ function abrirCategoria(c = null) {
         fecharSheet(); render(); toast(c ? 'Categoria salva' : 'Categoria criada');
       } catch (e) { tratarErro(e); }
     });
-    $('#cat-excluir')?.addEventListener('click', e => {
+    $('#cat-excluir')?.addEventListener('click', async () => {
       if (usos) { est.excluindo = true; return desenhar(); }
-      if (pedirSegundoToque(e.currentTarget, 'Toque de novo para excluir')) excluirCategoria(c);
+      if (await confirmar(`Excluir a categoria “${c.nome}”?`)) excluirCategoria(c);
     });
     $('#cat-excluir-nao')?.addEventListener('click', () => { est.excluindo = false; est.destino = null; desenhar(); });
     $('#cat-excluir-ok')?.addEventListener('click', () => excluirCategoria(c, est.destino));
@@ -1252,7 +1320,15 @@ async function excluirCategoria(c, destino = null) {
     await Api.excluirCategoria(c.id);
     S.categorias = S.categorias.filter(x => x.id !== c.id);
     fecharSheet(); render(); toast('Categoria excluída');
-  } catch (e) { tratarErro(e); }
+  } catch (e) {
+    if (e.auth) return tratarErro(e);
+    // A resposta pode ter se perdido: confere no banco antes de mostrar erro
+    try {
+      S.categorias = await Api.categorias();
+      if (!S.categorias.some(x => x.id === c.id)) { fecharSheet(); render(); return toast('Categoria excluída'); }
+    } catch (_) { /* sem conexão de verdade */ }
+    tratarErro(e);
+  }
 }
 
 /* ---------- Recorrentes: telas ---------- */
@@ -1316,8 +1392,8 @@ function abrirRecorrente(r) {
     const dados = r.ativa ? { ativa: false } : { ativa: true, gerado_ate: hoje() > (r.gerado_ate || '') ? hoje() : r.gerado_ate };
     atualizar(dados, r.ativa ? 'Pausado: não será mais lançado' : 'Retomado: volta no próximo vencimento');
   });
-  $('#r-excluir').addEventListener('click', async e => {
-    if (!pedirSegundoToque(e.currentTarget, 'Toque de novo para excluir')) return;
+  $('#r-excluir').addEventListener('click', async () => {
+    if (!await confirmar('Excluir esse lançamento mensal? O que já foi lançado continua no histórico.')) return;
     try {
       await Api.excluirRecorrente(r.id);
       S.recorrentes = S.recorrentes.filter(x => x.id !== r.id);
@@ -1471,7 +1547,7 @@ document.addEventListener('click', e => {
       return;
     case 'f-user': f.usuario_id = el.dataset.id; return marcar();
     case 'salvar': return salvarForm();
-    case 'excluir': return excluirForm(el);
+    case 'excluir': return excluirForm();
     case 'h-tipo': S.hist.tipo = el.dataset.v; S.hist.limite = 60; return render();
     case 'h-mais': S.hist.limite += 60; $('#h-res').innerHTML = histResultados(); return;
     case 'exportar': return exportarCSV();
@@ -1494,7 +1570,7 @@ document.addEventListener('click', e => {
     case 'recarregar':
       return carregarTudo().then(() => { render(); if (!S.offline) toast('Dados atualizados'); }).catch(tratarErro);
     case 'sair':
-      if (pedirSegundoToque(el, 'Toque de novo', el.querySelector('.dir') || el)) { Lock.desativar(); Api.sair().then(() => telaLogin()); }
+      return confirmar('Sair da conta neste aparelho?', { ok: 'Sair' }).then(ok => { if (ok) { Lock.desativar(); Api.sair().then(() => telaLogin()); } });
       return;
   }
 });
