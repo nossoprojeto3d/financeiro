@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.11.0';
+const VERSAO = '2.11.1';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -375,30 +375,57 @@ function render() {
 }
 
 /* ===================== Ordem das categorias (arrastar) ===================== */
-// Segura a alça e arrasta: a linha troca de lugar com a vizinha ao passar da metade dela.
+// Segura a alça e arrasta. Durante o arraste só mexe com transform (não tira a linha
+// do lugar, senão o iPhone cancela o toque); a ordem muda de verdade ao soltar.
+// Perto da borda da tela, a página rola sozinha.
 function ativarArraste(bloco) {
   $$('.alca', bloco).forEach(alca => alca.addEventListener('pointerdown', e => {
-    const linha = alca.closest('.cat-linha');
     e.preventDefault();
-    try { alca.setPointerCapture(e.pointerId); } catch (_) {} // no toque, o navegador já prende o dedo à alça
+    try { alca.setPointerCapture(e.pointerId); } catch (_) {}
+    const linha = alca.closest('.cat-linha');
+    const linhas = [...bloco.children];
+    const de = linhas.indexOf(linha);
+    const alturas = linhas.map(x => x.offsetHeight);
+    const antes = linhas.map(x => x.dataset.id).join();
+    const y0 = e.clientY + scrollY;
+    let yDedo = e.clientY, para = de, rolando = null;
     S.arrastando = true;
-    let base = e.clientY;
-    const antes = [...bloco.children].map(x => x.dataset.id).join();
     linha.classList.add('arrastando');
-    const mover = ev => {
-      let dy = ev.clientY - base;
-      const prox = linha.nextElementSibling, ant = linha.previousElementSibling;
-      if (prox && dy > prox.offsetHeight / 2) { prox.after(linha); base += prox.offsetHeight; }
-      else if (ant && dy < -ant.offsetHeight / 2) { ant.before(linha); base -= ant.offsetHeight; }
-      dy = ev.clientY - base;
+    linhas.forEach(x => { if (x !== linha) x.style.transition = 'transform .18s'; });
+
+    const atualizar = () => {
+      const dy = yDedo + scrollY - y0;
       linha.style.transform = `translateY(${dy}px)`;
+      // nova posição: quantas linhas o centro da arrastada já passou
+      let pos = de, acum = 0;
+      if (dy > 0) for (let k = de + 1; k < linhas.length && dy > acum + alturas[k] / 2; k++) { acum += alturas[k]; pos = k; }
+      else for (let k = de - 1; k >= 0 && -dy > acum + alturas[k] / 2; k--) { acum += alturas[k]; pos = k; }
+      para = pos;
+      const h = alturas[de];
+      linhas.forEach((x, k) => {
+        if (x === linha) return;
+        const desloca = de < para && k > de && k <= para ? -h : de > para && k < de && k >= para ? h : 0;
+        x.style.transform = desloca ? `translateY(${desloca}px)` : '';
+      });
     };
+    const rolar = () => {
+      const borda = 90, alto = innerHeight;
+      const v = yDedo < borda ? -(borda - yDedo) / 6 : yDedo > alto - borda ? (yDedo - (alto - borda)) / 6 : 0;
+      if (v) { scrollBy(0, v); atualizar(); }
+      rolando = requestAnimationFrame(rolar);
+    };
+    const mover = ev => { yDedo = ev.clientY; atualizar(); };
     const soltar = () => {
+      cancelAnimationFrame(rolando);
       alca.removeEventListener('pointermove', mover);
       alca.removeEventListener('pointerup', soltar);
       alca.removeEventListener('pointercancel', soltar);
+      linhas.forEach(x => { x.style.transition = ''; x.style.transform = ''; });
       linha.classList.remove('arrastando');
-      linha.style.transform = '';
+      if (para !== de) {
+        const alvo = linhas[para];
+        if (para > de) alvo.after(linha); else alvo.before(linha);
+      }
       S.arrastando = false;
       const ids = [...bloco.children].map(x => Number(x.dataset.id));
       if (ids.join() !== antes) salvarOrdem(ids);
@@ -406,6 +433,7 @@ function ativarArraste(bloco) {
     alca.addEventListener('pointermove', mover);
     alca.addEventListener('pointerup', soltar);
     alca.addEventListener('pointercancel', soltar);
+    rolando = requestAnimationFrame(rolar);
   }));
 }
 
