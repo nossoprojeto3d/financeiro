@@ -43,6 +43,8 @@ Fundo `#120E09`, cards `#17130D`, bordas `#241C12` / `#3A3226`, dourado `#C9A227
 - Sem importação de planilha: eles começam do zero com uma entrada "Saldo inicial / ajuste".
 - Sem resumo nem saldo do dia no Histórico: foi testado e rejeitado por poluir a tela.
 - IA continua no Gemini grátis (não trocar por API paga).
+- Categorias não têm "arquivar": só criar, editar e excluir. Excluir uma categoria com lançamentos pede outra categoria para recebê-los (e os recorrentes). A coluna `ativa` ficou no banco, mas o app não usa mais.
+- A natureza da categoria fica (aparece como "Conta como"): é ela que alimenta as contas da Gestão (lucro, meta mínima, equipamentos).
 
 ## Próximos passos planejados (V3)
 Metas de gasto por categoria, foto do comprovante no lançamento (Supabase Storage) e lançar sem internet com envio depois.
