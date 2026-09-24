@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.10.0';
+const VERSAO = '2.11.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -73,6 +73,18 @@ function toast(msg, erro = false) {
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove('on'), erro ? 4200 : 2600);
 }
+
+/* ===================== Área visível da tela ===================== */
+// O popup fica no centro do que dá para ver: quando o teclado sobe, ele sobe junto e encolhe.
+function ajustarAreaVisivel() {
+  const v = window.visualViewport; if (!v) return;
+  const r = document.documentElement.style;
+  r.setProperty('--vv-h', v.height + 'px');
+  r.setProperty('--vv-top', v.offsetTop + 'px');
+}
+window.visualViewport?.addEventListener('resize', ajustarAreaVisivel);
+window.visualViewport?.addEventListener('scroll', ajustarAreaVisivel);
+ajustarAreaVisivel();
 
 /* ===================== Confirmação ===================== */
 // Diálogo próprio no lugar do confirm() do navegador: no app instalado no
