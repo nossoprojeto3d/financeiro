@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.3.1';
+const VERSAO = '2.4.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -328,6 +328,9 @@ function irPara(tela) {
   $$('.nav button').forEach(b => b.classList.toggle('ativo', b.dataset.tela === tela));
   render();
   window.scrollTo(0, 0);
+  // Entrada suave só ao trocar de aba (a sincronização a cada 30 s não anima)
+  const m = $('#main');
+  m.classList.remove('entrando'); void m.offsetWidth; m.classList.add('entrando');
 }
 
 function render() {
@@ -362,6 +365,46 @@ function itemCompacto(l) {
     </button>`;
 }
 
+// Linha do saldo nos últimos 60 dias, apagada ao fundo do cartão do saldo.
+// Sem movimento suficiente, não desenha nada (não inventa tendência).
+function linhaSaldo() {
+  const dias = 60, fim = new Date(), ini = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate() - dias);
+  const inicio = iso(ini);
+  let saldo = 0;
+  const porDia = {};
+  for (const l of S.lancs) {
+    const v = l.tipo === 'entrada' ? l.valor : -l.valor;
+    if (l.data < inicio) saldo += v;
+    else porDia[l.data] = (porDia[l.data] || 0) + v;
+  }
+  if (Object.keys(porDia).length < 2) return '';
+  const pts = [];
+  for (let i = 0; i <= dias; i++) {
+    const d = iso(new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + i));
+    saldo += porDia[d] || 0;
+    pts.push(saldo);
+  }
+  const min = Math.min(...pts), max = Math.max(...pts);
+  if (max === min) return '';
+  // Um ponto a cada 4 dias e curva suave, para não virar degraus
+  const P = pts.filter((_, i) => i % 4 === 0 || i === dias)
+    .map((v, i, a) => [i / (a.length - 1) * 300, 90 - (v - min) / (max - min) * 64]);
+  const f = n => n.toFixed(1);
+  let linha = `M${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 0; i < P.length - 1; i++) {
+    const a = P[i - 1] || P[i], b = P[i], c = P[i + 1], d = P[i + 2] || c;
+    linha += `C${f(b[0] + (c[0] - a[0]) / 6)} ${f(b[1] + (c[1] - a[1]) / 6)} ${f(c[0] - (d[0] - b[0]) / 6)} ${f(c[1] - (d[1] - b[1]) / 6)} ${f(c[0])} ${f(c[1])}`;
+  }
+  return `
+    <svg class="hero-linha" viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true">
+      <defs><linearGradient id="hero-area" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#C9A227" stop-opacity=".18"/><stop offset="1" stop-color="#C9A227" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="${linha}L300 100L0 100Z" fill="url(#hero-area)"/>
+      <path d="${linha}" class="traco" vector-effect="non-scaling-stroke"/>
+    </svg>`;
+}
+
 function telaInicio() {
   const agora = new Date();
   const ini = iso(new Date(agora.getFullYear(), agora.getMonth(), 1));
@@ -379,24 +422,25 @@ function telaInicio() {
     </div>
 
     <div class="caixa-hero">
+      ${linhaSaldo()}
       <span class="rotulo">Saldo em caixa${S.offline ? ' (offline)' : ''}</span>
       <strong class="valor ${caixa < 0 ? 'neg' : ''}">${esc(fmt(caixa))}</strong>
-      <span class="mes-resumo">Em ${mes}: <span class="e">+${esc(fmt(ent))}</span> <span class="s">−${esc(fmt(sai))}</span></span>
+      <span class="mes-resumo">${mes[0].toUpperCase() + mes.slice(1)}<span class="e">+${esc(fmt(ent))}</span><span class="s">−${esc(fmt(sai))}</span></span>
     </div>
 
     <div class="acoes">
       <button class="acao entrada" data-acao="novo" data-tipo="entrada">
-        <svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>Entrada
+        <span class="acao-icone"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></span>Entrada
       </button>
       <button class="acao saida" data-acao="novo" data-tipo="saida">
-        <svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>Saída
+        <span class="acao-icone"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></span>Saída
       </button>
     </div>
 
     <section class="recentes">
       <div class="recentes-topo"><span>Recentes</span>${ultimos.length ? '<button data-tela-ir="historico">Ver todos</button>' : ''}</div>
       ${ultimos.length
-        ? `<div class="lista">${ultimos.map(itemCompacto).join('')}</div>`
+        ? `<div class="lista bloco-lista">${ultimos.map(itemCompacto).join('')}</div>`
         : `<p class="vazio-simples">Nenhum lançamento ainda. Se já existe dinheiro em conta, comece com uma entrada em “Saldo inicial / ajuste”.</p>`}
     </section>`;
 }
