@@ -6,7 +6,7 @@ window.CAIXA_CONFIG = {
   SUPABASE_KEY: 'sb_publishable_oETMODMZSazY4tWIYmOWLw_aqT6zY9l',
   // Aparecem como botões na tela de login (só digita a senha)
   USUARIOS: [
-    { nome: 'Junior', email: 'juniorm2488@gmail.com' }
-    // Quando cadastrar a Thai: , { nome: 'Thai', email: 'EMAIL_DELA' }
+    { nome: 'Junior', email: 'juniorm2488@gmail.com' },
+    { nome: 'Thai', email: 'thairinefernandessoares@gmail.com' }
   ]
 };
