@@ -716,3 +716,33 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
   background: var(--card-2); box-shadow: 0 10px 28px rgba(0, 0, 0, .45), 0 0 0 1px rgba(201, 162, 39, .35);
 }
 .cat-linha.arrastando .alca { color: var(--ouro); cursor: grabbing; }
+
+/* ---------- V2.10: histórico mais rico ---------- */
+.mes-h { font: 600 1.25rem var(--serif); color: var(--txt); margin: 28px 4px 0; letter-spacing: -0.01em; }
+.mes-h span { color: var(--txt-4); font-weight: 500; }
+#h-res > .lista > .mes-h:first-child { margin-top: 18px; }
+.mes-h + .dia-h { margin-top: 10px; }
+.item.hist { gap: 12px; padding: 12px 0; }
+.icone-tipo { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 12px; flex: none; }
+.icone-tipo svg { width: 17px; height: 17px; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.icone-tipo.entrada { background: rgba(143, 191, 127, .12); }
+.icone-tipo.entrada svg { stroke: var(--ent); }
+.icone-tipo.saida { background: rgba(217, 139, 110, .12); }
+.icone-tipo.saida svg { stroke: var(--sai); }
+.item.hist .titulo { font-size: .95rem; font-weight: 500; }
+.item.hist .sub { display: flex; align-items: center; gap: 6px; font-size: .76rem; color: var(--txt-4); margin-top: 2px; }
+.item.hist .quem {
+  display: inline-grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; flex: none;
+  font: 600 .58rem var(--serif); font-style: normal; color: var(--bg);
+}
+.item.hist .rep { width: 12px; height: 12px; fill: none; stroke: var(--ouro); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.item.hist .v { font-size: .95rem; font-weight: 600; }
+.vazio-hist {
+  margin-top: 18px; padding: 30px 18px 18px; text-align: center; border-radius: 24px;
+  background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--borda);
+}
+.vazio-icone { display: inline-grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: rgba(201, 162, 39, .1); color: var(--ouro); }
+.vazio-icone svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.vazio-hist strong { display: block; font: 600 1.1rem var(--serif); margin: 14px 0 20px; }
+.item.hist .sub-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item.hist .quem { width: 17px; height: 17px; font-size: .62rem; }

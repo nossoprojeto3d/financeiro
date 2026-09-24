@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.9.0';
+const VERSAO = '2.10.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -783,16 +783,31 @@ function telaHistorico() {
     <div id="h-res">${histResultados()}</div>`;
 }
 
+const SETA_ENT = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
+const SETA_SAI = '<svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
+const ICONE_REPETE = '<svg class="rep" viewBox="0 0 24 24" aria-label="Se repete todo mês"><path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/></svg>';
+const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+
 function itemHist(l) {
-  const c = cat(l.categoria_id);
+  const c = cat(l.categoria_id), u = perfil(l.usuario_id);
+  const sub = [l.descricao ? c?.nome : null, l.forma_pagamento].filter(Boolean).join(' · ');
   return `
-    <button class="item compacto" data-acao="editar" data-id="${l.id}">
+    <button class="item hist" data-acao="editar" data-id="${l.id}">
+      <span class="icone-tipo ${l.tipo}">${l.tipo === 'entrada' ? SETA_ENT : SETA_SAI}</span>
       <span class="meio">
         <span class="titulo">${esc(l.descricao || c?.nome || 'Sem categoria')}</span>
-        ${l.descricao && c ? `<span class="sub">${esc(c.nome)}</span>` : ''}
+        <span class="sub">${u ? `<i class="quem" style="background:${esc(u.cor)}" title="${esc(u.nome)}">${esc(u.nome[0])}</i>` : ''}${l.recorrente_id ? ICONE_REPETE : ''}<span class="sub-txt">${esc(sub)}</span></span>
       </span>
       <span class="v ${l.tipo === 'entrada' ? 'e' : 's'}">${l.tipo === 'entrada' ? '+' : '−'} ${esc(fmt(l.valor))}</span>
     </button>`;
+}
+
+// Dentro do mês, o dia aparece curto: "Hoje", "Ontem" ou "Terça, 22"
+function diaCurto(s) {
+  if (s === hoje()) return 'Hoje';
+  if (s === ontem()) return 'Ontem';
+  const d = deISO(s);
+  return `${DIAS_SEMANA[d.getDay()]}, ${d.getDate()}`;
 }
 
 function histResultados() {
@@ -804,12 +819,21 @@ function histResultados() {
     return alvo.includes(q);
   });
   const vis = lista.slice(0, h.limite);
-  let html = '', diaAtual = null;
+  const anoAtual = String(new Date().getFullYear());
+  let html = '', diaAtual = null, mesAtual = null;
   vis.forEach(l => {
+    const mes = l.data.slice(0, 7);
+    if (mes !== mesAtual) {
+      if (diaAtual) html += '</div>';
+      diaAtual = null; mesAtual = mes;
+      const [a, m] = mes.split('-');
+      const nome = MESES_LONGO[Number(m) - 1];
+      html += `<div class="mes-h">${nome[0].toUpperCase() + nome.slice(1)}${a !== anoAtual ? ` <span>${a}</span>` : ''}</div>`;
+    }
     if (l.data !== diaAtual) {
       if (diaAtual) html += '</div>';
       diaAtual = l.data;
-      html += `<div class="dia-h">${esc(dataBonita(l.data))}</div><div class="bloco-lista">`;
+      html += `<div class="dia-h">${esc(diaCurto(l.data))}</div><div class="bloco-lista">`;
     }
     html += itemHist(l);
   });
@@ -819,9 +843,20 @@ function histResultados() {
     ? `${lista.length} resultado${lista.length === 1 ? '' : 's'}${lista.length ? ` · ${h.tipo === 'saida' ? '' : total >= 0 ? '+' : '−'}${esc(fmt(Math.abs(total)))}` : ''}`
     : '';
 
+  const vazio = q || S.lancs.length
+    ? `<p class="vazio-simples">${q ? 'Nada encontrado. Tente outra palavra.' : 'Nenhum lançamento desse tipo.'}</p>`
+    : `<div class="vazio-hist">
+        <span class="vazio-icone"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></svg></span>
+        <strong>Nenhum lançamento ainda</strong>
+        <div class="acoes">
+          <button class="acao entrada" data-acao="novo" data-tipo="entrada"><span class="acao-icone">${SETA_ENT}</span>Entrada</button>
+          <button class="acao saida" data-acao="novo" data-tipo="saida"><span class="acao-icone">${SETA_SAI}</span>Saída</button>
+        </div>
+      </div>`;
+
   return `
     ${resumo ? `<p class="resumo-busca">${resumo}</p>` : ''}
-    ${vis.length ? `<div class="lista">${html}</div>` : `<p class="vazio-simples">${q ? 'Nada encontrado. Tente outra palavra.' : 'Os lançamentos aparecem aqui.'}</p>`}
+    ${vis.length ? `<div class="lista">${html}</div>` : vazio}
     ${lista.length > vis.length ? `<button class="btn link" data-acao="h-mais" style="width:100%;margin-top:8px">Mostrar mais</button>` : ''}`;
 }
 
