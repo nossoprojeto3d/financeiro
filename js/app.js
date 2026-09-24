@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.11.2';
+const VERSAO = '2.11.3';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -73,6 +73,18 @@ function toast(msg, erro = false) {
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove('on'), erro ? 4200 : 2600);
 }
+
+/* ===================== Área visível da tela ===================== */
+// O popup fica no centro do que dá para ver: quando o teclado sobe, ele sobe junto e encolhe.
+function ajustarAreaVisivel() {
+  const v = window.visualViewport; if (!v) return;
+  const r = document.documentElement.style;
+  r.setProperty('--vv-h', v.height + 'px');
+  r.setProperty('--vv-top', v.offsetTop + 'px');
+}
+window.visualViewport?.addEventListener('resize', ajustarAreaVisivel);
+window.visualViewport?.addEventListener('scroll', ajustarAreaVisivel);
+ajustarAreaVisivel();
 
 /* ===================== Confirmação ===================== */
 // Diálogo próprio no lugar do confirm() do navegador: no app instalado no
@@ -543,10 +555,12 @@ function telaInicio() {
 
 /* ===================== Formulário de lançamento ===================== */
 let sheetT;
-function abrirSheet(html) {
+// Por padrão abre como popup no centro; o lançamento de entrada/saída sobe de baixo.
+function abrirSheet(html, { deBaixo = false } = {}) {
   clearTimeout(sheetT);
   const sh = $('#sheet'), fundo = $('#sheet-fundo');
   sh.classList.remove('modo-cat');
+  sh.classList.toggle('centro', !deBaixo);
   sh.innerHTML = `<div class="puxador"></div>${html}`;
   sh.hidden = false; fundo.hidden = false;
   sh.scrollTop = 0;
@@ -642,7 +656,7 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
       ${f.id ? '<button class="btn perigo" data-acao="excluir">Excluir lançamento</button>' : ''}
     </div>
     </div>
-    <div id="f-cat-painel" class="painel-cat"></div>`);
+    <div id="f-cat-painel" class="painel-cat"></div>`, { deBaixo: true });
 
   renderCatsForm();
   // Ao abrir "Mais detalhes", rola até os campos (senão ficam escondidos embaixo)

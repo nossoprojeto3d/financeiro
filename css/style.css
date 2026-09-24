@@ -746,3 +746,20 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .vazio-hist strong { display: block; font: 600 1.1rem var(--serif); margin: 14px 0 20px; }
 .item.hist .sub-txt { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item.hist .quem { width: 17px; height: 17px; font-size: .62rem; }
+
+/* ---------- V2.11.3: popup no centro (menos no lançamento, que sobe de baixo) ---------- */
+/* --vv-h e --vv-top vêm do app.js: a área visível da tela, que encolhe quando o teclado sobe */
+.sheet.centro {
+  top: calc(var(--vv-top, 0px) + var(--vv-h, 100dvh) / 2); bottom: auto; left: 50%; right: auto;
+  width: min(520px, calc(100% - 24px)); margin: 0;
+  max-height: calc(var(--vv-h, 100dvh) - 32px);
+  border-radius: 28px; border-bottom: 1px solid var(--borda-forte);
+  padding-top: 20px;
+  transform: translate(-50%, -50%) scale(.94); opacity: 0;
+  transition: transform .24s cubic-bezier(.2, .8, .2, 1), opacity .18s;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+}
+.sheet.centro.aberto { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+.sheet.centro .puxador { display: none; }
+.sheet.centro .acoes-form { padding-bottom: 22px; }
+@media (prefers-reduced-motion: reduce) { .sheet.centro { transform: translate(-50%, -50%); } }
