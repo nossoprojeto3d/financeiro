@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.2.0';
+const VERSAO = '2.3.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -102,48 +102,82 @@ function mostrarPorta(html) {
   p.innerHTML = html;
 }
 
+// Topo da porta: gráfico subindo ao fundo, logo e nome.
+function portaTopo() {
+  return `
+    <div class="porta-fundo" aria-hidden="true">
+      <svg viewBox="0 0 400 300" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id="ouro-area" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color="#C9A227" stop-opacity=".16"/><stop offset="1" stop-color="#C9A227" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path class="grade" d="M0 75H400M0 150H400M0 225H400" vector-effect="non-scaling-stroke"/>
+        <path class="area" d="M0 262C50 256 80 236 120 240S190 196 235 204S320 140 400 96V300H0Z"/>
+        <path class="linha" d="M0 262C50 256 80 236 120 240S190 196 235 204S320 140 400 96" pathLength="1" vector-effect="non-scaling-stroke"/>
+      </svg>
+    </div>
+    <header class="porta-topo">
+      ${logoMarca()}
+      <h1>Financeiro</h1>
+      <span class="marca">Nosso Projeto 3D</span>
+    </header>`;
+}
+
+const ICONE_CADEADO = '<svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></svg>';
+const ICONE_OLHO = '<svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+const ICONE_OLHO_FECHADO = '<svg viewBox="0 0 24 24"><path d="M4 4l16 16M10 5.7A9.6 9.6 0 0 1 12 5.5c6 0 9.5 6.5 9.5 6.5a16 16 0 0 1-2.6 3.4M6.2 7.4C3.9 9.1 2.5 12 2.5 12S6 18.5 12 18.5c1.5 0 2.8-.4 4-1M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+const ICONE_SETA = '<svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+const ICONE_FACEID = '<svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1.5M15 9v1.5M12 9v4h-1M9.5 16c1.5 1 3.5 1 5 0"/></svg>';
+
 function telaConfigFaltando() {
   mostrarPorta(`
-    <div class="porta-topo">
-      ${logoMarca()}
-      <h1>Caixa</h1>
-      <span class="marca">Nosso Projeto 3D</span>
-    </div>
-    <div class="aviso-config">
-      Falta conectar o banco. Abra <code>js/config.js</code> e preencha
-      <code>SUPABASE_URL</code>, <code>SUPABASE_KEY</code> e os e-mails dos usuários.
-      O passo a passo está no <code>README.md</code>.
+    ${portaTopo()}
+    <div class="porta-painel">
+      <div class="aviso-config">
+        Falta conectar o banco. Abra <code>js/config.js</code> e preencha
+        <code>SUPABASE_URL</code>, <code>SUPABASE_KEY</code> e os e-mails dos usuários.
+        O passo a passo está no <code>README.md</code>.
+      </div>
     </div>`);
 }
 
 function telaLogin(msg = '') {
   const us = window.CAIXA_CONFIG.USUARIOS || [];
   const ultimo = localStorage.getItem('caixa_email') || us[0]?.email || '';
+  const sel = Math.max(0, us.findIndex(u => u.email === ultimo));
   mostrarPorta(`
-    <div class="porta-topo">
-      ${logoMarca()}
-      <h1>Caixa</h1>
-      <span class="marca">Nosso Projeto 3D</span>
-    </div>
-    <form id="form-login" autocomplete="on">
-      <div class="quem">
+    ${portaTopo()}
+    <form class="porta-painel" id="form-login" autocomplete="on">
+      <div class="quem" style="--n:${us.length || 1};--i:${sel}">
         ${us.map((u, i) => `
-          <button type="button" data-email="${esc(u.email)}" class="${u.email === ultimo ? 'ativo' : ''}">
+          <button type="button" data-email="${esc(u.email)}" data-i="${i}" class="${i === sel ? 'ativo' : ''}">
             <span class="avatar" style="background:${i === 0 ? '#C9A227' : '#8FB5C9'}">${esc(u.nome[0])}</span>
             ${esc(u.nome)}
           </button>`).join('')}
       </div>
-      <input class="oculto" type="email" name="username" id="login-email" autocomplete="username" value="${esc(ultimo)}" tabindex="-1">
-      <input class="campo" type="password" id="login-senha" name="password" autocomplete="current-password" placeholder="Senha" required>
+      <input class="oculto" type="email" name="username" id="login-email" autocomplete="username" value="${esc(us[sel]?.email || '')}" tabindex="-1">
+      <div class="campo-senha">
+        ${ICONE_CADEADO}
+        <input class="campo" type="password" id="login-senha" name="password" autocomplete="current-password" placeholder="Senha" required>
+        <button type="button" class="olho" id="login-olho" aria-label="Mostrar senha">${ICONE_OLHO}</button>
+      </div>
       <p class="erro" id="login-erro">${esc(msg)}</p>
-      <button class="btn" type="submit" id="login-btn">Entrar</button>
+      <button class="btn" type="submit" id="login-btn">Entrar ${ICONE_SETA}</button>
     </form>`);
 
   $$('.quem button').forEach(b => b.addEventListener('click', () => {
     $$('.quem button').forEach(x => x.classList.toggle('ativo', x === b));
+    $('.quem').style.setProperty('--i', b.dataset.i);
     $('#login-email').value = b.dataset.email;
     $('#login-senha').focus();
   }));
+  $('#login-olho').addEventListener('click', () => {
+    const campo = $('#login-senha'), mostrar = campo.type === 'password';
+    campo.type = mostrar ? 'text' : 'password';
+    $('#login-olho').innerHTML = mostrar ? ICONE_OLHO_FECHADO : ICONE_OLHO;
+    $('#login-olho').setAttribute('aria-label', mostrar ? 'Esconder senha' : 'Mostrar senha');
+  });
   $('#form-login').addEventListener('submit', async e => {
     e.preventDefault();
     const email = $('#login-email').value, senha = $('#login-senha').value;
@@ -158,7 +192,7 @@ function telaLogin(msg = '') {
       await entrarNoApp(true);
     } catch (err) {
       $('#login-erro').textContent = err.message;
-      btn.disabled = false; btn.textContent = 'Entrar';
+      btn.disabled = false; btn.innerHTML = `Entrar ${ICONE_SETA}`;
     }
   });
 }
@@ -166,18 +200,13 @@ function telaLogin(msg = '') {
 function telaBloqueio() {
   const nome = localStorage.getItem('caixa_nome') || '';
   mostrarPorta(`
-    <div class="porta-topo">
-      ${logoMarca()}
-      <h1>Caixa</h1>
-      <span class="marca">Nosso Projeto 3D</span>
-    </div>
-    <p class="lead">${nome ? `Olá, ${esc(nome)}. ` : ''}Desbloqueie para ver os números.</p>
-    <button class="btn" id="btn-desbloquear">
-      <svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M9 9v1.5M15 9v1.5M12 9v4h-1M9.5 16c1.5 1 3.5 1 5 0"/></svg>
-      Desbloquear com Face ID
-    </button>
-    <button class="btn link" id="btn-senha">Entrar com senha</button>
-    <p class="erro" id="bloq-erro"></p>`);
+    ${portaTopo()}
+    <div class="porta-painel">
+      <button class="faceid" id="btn-desbloquear" aria-label="Desbloquear com Face ID">${ICONE_FACEID}</button>
+      <p class="faceid-rotulo">${nome ? `Olá, ${esc(nome)}. ` : ''}Toque para desbloquear</p>
+      <button class="btn link" id="btn-senha">Entrar com senha</button>
+      <p class="erro" id="bloq-erro" style="text-align:center"></p>
+    </div>`);
   const tentar = async (auto = false) => {
     try { await Lock.verificar(); await entrarNoApp(); }
     catch (_) { if (!auto) $('#bloq-erro').textContent = 'Não foi possível confirmar. Toque para tentar de novo.'; }

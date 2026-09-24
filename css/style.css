@@ -49,23 +49,44 @@ h2 { font-size: 1.2rem; }
 
 /* ---------- Porta: login / trava / carregando ---------- */
 .porta {
+  position: relative; isolation: isolate; overflow: hidden;
   min-height: calc(100vh - env(safe-area-inset-top, 0px));
-  min-height: calc(100dvh - env(safe-area-inset-top, 0px));
-  display: flex; flex-direction: column; justify-content: center;
-  max-width: 420px; margin: 0 auto;
-  padding: 32px 24px calc(32px + env(safe-area-inset-bottom, 0px));
+  min-height: calc(100lvh - env(safe-area-inset-top, 0px));
+  display: flex; flex-direction: column;
 }
-.porta { position: relative; isolation: isolate; }
-.porta::before { /* brilho dourado suave atrás da logo */
-  content: ''; position: absolute; z-index: -1; pointer-events: none;
-  left: 50%; top: 4%; width: 340px; height: 340px; transform: translateX(-50%);
-  background: radial-gradient(closest-side, rgba(201, 162, 39, .13), transparent);
+.porta > .carregando { margin: auto; }
+.porta-fundo { /* gráfico dourado subindo, bem apagado, atrás da logo */
+  position: absolute; z-index: -1; inset: 0 0 auto; height: 68%; pointer-events: none;
+  -webkit-mask-image: linear-gradient(#000 55%, transparent); mask-image: linear-gradient(#000 55%, transparent);
 }
-.porta-topo { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 40px; }
-.marca { color: var(--ouro); font-size: .72rem; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; }
-.porta h1 { font-size: 2.6rem; line-height: 1; margin: 22px 0 10px; }
-.porta .lead { color: var(--txt-2); margin: 0 0 24px; text-align: center; }
-.logo { width: 104px; height: auto; overflow: visible; filter: drop-shadow(0 6px 18px rgba(201, 162, 39, .18)); }
+.porta-fundo svg { width: 100%; height: 100%; display: block; }
+.porta-fundo .grade { stroke: var(--borda); stroke-width: 1; }
+.porta-fundo .area { fill: url(#ouro-area); }
+.porta-fundo .linha { fill: none; stroke: var(--ouro); stroke-width: 1.5; opacity: .4;
+  stroke-dasharray: 1; stroke-dashoffset: 1; animation: logo-desenha 2.2s .3s cubic-bezier(.4, 0, .2, 1) forwards; }
+.porta-topo {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center;
+  padding: 48px 24px 32px;
+}
+.porta-topo::before { /* brilho atrás da logo */
+  content: ''; position: absolute; z-index: -1; width: 300px; height: 300px; margin-top: -120px;
+  background: radial-gradient(closest-side, rgba(201, 162, 39, .14), transparent);
+}
+.porta h1 { font-size: 2.5rem; line-height: 1; margin: 24px 0 10px; letter-spacing: -0.02em; }
+.marca { color: var(--ouro); font-size: .68rem; font-weight: 500; letter-spacing: .24em; text-transform: uppercase; }
+.porta-painel {
+  width: 100%; max-width: 480px; margin: 0 auto;
+  padding: 26px 22px calc(22px + env(safe-area-inset-bottom, 0px));
+  background: linear-gradient(180deg, rgba(28, 23, 15, .92), rgba(23, 19, 13, .98));
+  border: 1px solid var(--borda-forte); border-bottom: 0; border-radius: 28px 28px 0 0;
+  -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px);
+  box-shadow: 0 -20px 50px rgba(0, 0, 0, .35);
+  animation: painel-sobe .6s .15s cubic-bezier(.2, .8, .2, 1) both;
+}
+.porta-painel .ola { text-align: center; color: var(--txt-3); font-size: .9rem; margin: 0 0 20px; }
+@keyframes painel-sobe { from { transform: translateY(40px); opacity: 0; } }
+
+.logo { width: 84px; height: auto; overflow: visible; filter: drop-shadow(0 6px 18px rgba(201, 162, 39, .2)); }
 .logo-traco { fill: none; stroke: url(#ouro-logo); stroke-width: 5.4; stroke-linejoin: miter;
   stroke-dasharray: 1; stroke-dashoffset: 1; animation: logo-desenha 1.4s cubic-bezier(.6, 0, .2, 1) forwards; }
 .logo-friso { fill: none; stroke: var(--bg); stroke-width: .8; opacity: 0; animation: logo-aparece .5s 1.2s forwards; }
@@ -77,19 +98,54 @@ h2 { font-size: 1.2rem; }
 @keyframes logo-desenha { to { stroke-dashoffset: 0; } }
 @keyframes logo-aparece { to { opacity: .55; } }
 @keyframes logo-sobe { to { transform: scaleY(1); } }
+
+/* Quem está entrando: seletor com marcador que desliza */
+.quem {
+  position: relative; display: grid; grid-template-columns: repeat(var(--n, 2), 1fr);
+  padding: 4px; margin-bottom: 14px; border-radius: 16px;
+  background: var(--bg); border: 1px solid var(--borda);
+}
+.quem::before {
+  content: ''; position: absolute; top: 4px; bottom: 4px; left: 4px;
+  width: calc((100% - 8px) / var(--n, 2)); border-radius: 12px;
+  background: var(--card-2); border: 1px solid var(--borda-forte);
+  transform: translateX(calc(100% * var(--i, 0))); transition: transform .28s cubic-bezier(.2, .8, .2, 1);
+}
+.quem button {
+  position: relative; display: flex; align-items: center; justify-content: center; gap: 10px;
+  padding: 10px 8px; color: var(--txt-4); font-weight: 500; transition: color .2s;
+}
+.quem button.ativo { color: var(--txt); }
+.quem .avatar { width: 30px; height: 30px; font-size: .9rem; transition: opacity .2s; }
+.quem button:not(.ativo) .avatar { opacity: .4; }
+
+/* Campo de senha com ícone e botão de mostrar */
+.campo-senha { position: relative; }
+.campo-senha > svg, .campo-senha .olho svg {
+  width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.campo-senha > svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: var(--txt-4); pointer-events: none; }
+.campo-senha .campo { padding: 16px 52px 16px 46px; border-radius: 16px; background: var(--bg); }
+.campo-senha .olho { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); padding: 10px; color: var(--txt-4); }
+.porta-painel .btn { border-radius: 16px; padding: 16px 18px; }
+.porta-painel .btn:not(.link) { box-shadow: 0 8px 24px rgba(201, 162, 39, .18); }
+
+/* Face ID: botão redondo */
+.faceid {
+  display: grid; place-items: center; width: 84px; height: 84px; margin: 0 auto 14px; border-radius: 50%;
+  color: var(--ouro); border: 1px solid var(--ouro-escuro); background: var(--bg);
+  box-shadow: 0 0 0 6px rgba(201, 162, 39, .06);
+  animation: pulso 2.4s ease-in-out infinite;
+}
+.faceid svg { width: 38px; height: 38px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.faceid:active { transform: scale(.96); }
+.faceid-rotulo { text-align: center; color: var(--txt-2); font-size: .92rem; margin: 0 0 18px; }
+@keyframes pulso { 50% { box-shadow: 0 0 0 12px rgba(201, 162, 39, .03); } }
+
 @media (prefers-reduced-motion: reduce) {
-  .logo-traco, .logo-friso, .logo-barras rect { animation: none; stroke-dashoffset: 0; transform: none; }
+  .logo-traco, .logo-friso, .logo-barras rect, .porta-fundo .linha, .porta-painel, .faceid { animation: none; stroke-dashoffset: 0; transform: none; }
   .logo-friso { opacity: .55; }
 }
-.quem { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-.quem button {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 20px 12px; border-radius: var(--r); border: 1px solid var(--borda-forte);
-  background: var(--card); transition: border-color .15s, background .15s;
-}
-.quem button { color: var(--txt-3); font-weight: 500; }
-.quem button.ativo { border-color: var(--ouro); background: var(--card-2); color: var(--txt); box-shadow: 0 0 0 3px rgba(201, 162, 39, .12); }
-.quem button:not(.ativo) .avatar { opacity: .55; }
 .avatar {
   width: 48px; height: 48px; border-radius: 50%;
   display: grid; place-items: center;
