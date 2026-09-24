@@ -38,6 +38,7 @@ Fundo `#120E09`, cards `#17130D`, bordas `#241C12` / `#3A3226`, dourado `#C9A227
 - O app atualiza sozinho a cada 30 s com o app aberto e na hora em que volta para a tela, sem interromper um formulário aberto.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.
+- **Não usar `confirm()`, `alert()` nem `prompt()`.** No iPhone com o app instalado, a chamada ao banco feita logo depois de um `confirm()` falha como "Load failed" (o app mostra "Sem conexão com a internet"). Para confirmar ações, use `pedirSegundoToque(botão, texto)` no `app.js`: o 1º toque arma o botão e o 2º confirma.
 
 ## Decisões já tomadas (não refazer)
 - Sem importação de planilha: eles começam do zero com uma entrada "Saldo inicial / ajuste".
