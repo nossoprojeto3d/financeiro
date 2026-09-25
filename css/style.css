@@ -833,3 +833,10 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .teclado-num svg { width: 24px; height: 24px; fill: none; stroke: var(--txt-3); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .lancar .btn { margin-top: 2px; }
 .excluir-lanc { color: var(--sai) !important; }
+
+/* ---------- V2.13.1: sem zoom no app ---------- */
+/* manipulation: sem zoom no toque duplo (e sem o atraso de toque do iPhone) */
+html, body, button, a, input, select, textarea, label { touch-action: manipulation; }
+.alca { touch-action: none; }
+/* campos com menos de 16px fazem o iPhone dar zoom ao tocar */
+input, select, textarea, .campo { font-size: 16px !important; }

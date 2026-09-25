@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.13.0';
+const VERSAO = '2.13.1';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -73,6 +73,12 @@ function toast(msg, erro = false) {
   clearTimeout(toastT);
   toastT = setTimeout(() => t.classList.remove('on'), erro ? 4200 : 2600);
 }
+
+/* ===================== Sem zoom ===================== */
+// O iPhone ignora parte do bloqueio da página: barra a pinça aqui. O toque duplo já é
+// barrado no CSS (touch-action: manipulation), sem perder toques rápidos no teclado numérico.
+['gesturestart', 'gesturechange', 'gestureend'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
 
 /* ===================== Área visível da tela ===================== */
 // O popup fica no centro do que dá para ver: quando o teclado sobe, ele sobe junto e encolhe.
