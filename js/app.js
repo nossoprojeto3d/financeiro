@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.13.1';
+const VERSAO = '2.14.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -354,7 +354,7 @@ async function sincronizar() {
     S.lancs = novosLancs; S.categorias = c;
     try { localStorage.setItem('caixa_cache', JSON.stringify({ p: S.perfis, c, l: novosLancs })); } catch (_) {}
 
-    if (S.tela === 'historico' && $('#h-res')) $('#h-res').innerHTML = histResultados();
+    if (S.tela === 'historico' && $('#h-res')) { $('#h-res').innerHTML = histResultados(); $('.hoje-card').outerHTML = cartaoHoje(); }
     else render();
 
     if (deOutros.length === 1) {
@@ -845,10 +845,23 @@ async function excluirForm() {
 }
 
 /* ===================== Histórico ===================== */
+// O que foi lançado hoje (pelos dois), em destaque no topo. Sem total: decisão anterior.
+function cartaoHoje() {
+  const d = new Date(), deHoje = S.lancs.filter(l => l.data === hoje());
+  return `
+    <section class="hoje-card">
+      <div class="hoje-topo"><span>Hoje</span><small>${esc(DIAS_SEMANA[d.getDay()])}, ${d.getDate()} de ${esc(MESES_LONGO[d.getMonth()])}</small></div>
+      ${deHoje.length
+        ? `<div class="lista">${deHoje.map(itemHist).join('')}</div>`
+        : `<div class="hoje-vazio"><span>Nada lançado hoje</span><button data-tela-ir="inicio">Lançar agora</button></div>`}
+    </section>`;
+}
+
 function telaHistorico() {
   const h = S.hist;
   return `
     <h1 class="titulo-tela">Histórico</h1>
+    ${cartaoHoje()}
     <div class="busca">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
       <input class="campo" id="h-busca" type="search" placeholder="Buscar" value="${esc(h.busca)}">
@@ -891,7 +904,8 @@ function histResultados() {
   const h = S.hist, q = h.busca.trim().toLowerCase();
   const lista = S.lancs.filter(l => {
     if (h.tipo !== 'todos' && l.tipo !== h.tipo) return false;
-    if (!q) return true;
+    if (!q) return l.data !== hoje(); // os de hoje já estão no cartão "Hoje"
+
     const alvo = [l.descricao, cat(l.categoria_id)?.nome, perfil(l.usuario_id)?.nome, l.forma_pagamento, fmt(l.valor)].join(' ').toLowerCase();
     return alvo.includes(q);
   });
@@ -920,16 +934,8 @@ function histResultados() {
     ? `${lista.length} resultado${lista.length === 1 ? '' : 's'}${lista.length ? ` · ${h.tipo === 'saida' ? '' : total >= 0 ? '+' : '−'}${esc(fmt(Math.abs(total)))}` : ''}`
     : '';
 
-  const vazio = q || S.lancs.length
-    ? `<p class="vazio-simples">${q ? 'Nada encontrado. Tente outra palavra.' : 'Nenhum lançamento desse tipo.'}</p>`
-    : `<div class="vazio-hist">
-        <span class="vazio-icone"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></svg></span>
-        <strong>Nenhum lançamento ainda</strong>
-        <div class="acoes">
-          <button class="acao entrada" data-acao="novo" data-tipo="entrada"><span class="acao-icone">${SETA_ENT}</span>Entrada</button>
-          <button class="acao saida" data-acao="novo" data-tipo="saida"><span class="acao-icone">${SETA_SAI}</span>Saída</button>
-        </div>
-      </div>`;
+  // sem busca, o vazio já aparece no cartão "Hoje"
+  const vazio = q ? `<p class="vazio-simples">Nada encontrado. Tente outra palavra.</p>` : '';
 
   return `
     ${resumo ? `<p class="resumo-busca">${resumo}</p>` : ''}

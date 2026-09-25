@@ -840,3 +840,17 @@ html, body, button, a, input, select, textarea, label { touch-action: manipulati
 .alca { touch-action: none; }
 /* campos com menos de 16px fazem o iPhone dar zoom ao tocar */
 input, select, textarea, .campo { font-size: 16px !important; }
+
+/* ---------- V2.14: cartão "Hoje" no Histórico ---------- */
+.hoje-card {
+  margin-top: 16px; padding: 14px 16px 6px; border-radius: 24px; border: 1px solid var(--borda-forte);
+  background: radial-gradient(120% 80% at 0% 0%, rgba(201, 162, 39, .12), transparent 60%), linear-gradient(180deg, var(--card-2), var(--card));
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .28);
+}
+.hoje-topo { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding-bottom: 4px; }
+.hoje-topo span { font: 600 1.2rem var(--serif); }
+.hoje-topo small { font-size: .7rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ouro); }
+.hoje-card .item.hist:last-child { border-bottom: 0; }
+.hoje-vazio { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0 12px; font-size: .9rem; color: var(--txt-3); }
+.hoje-vazio button { color: var(--ouro); font-weight: 500; font-size: .9rem; }
+.hoje-card + .busca { margin-top: 18px; }
