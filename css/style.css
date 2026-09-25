@@ -763,3 +763,11 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .sheet.centro .puxador { display: none; }
 .sheet.centro .acoes-form { padding-bottom: 22px; }
 @media (prefers-reduced-motion: reduce) { .sheet.centro { transform: translate(-50%, -50%); } }
+
+/* ---------- V2.12: topo do Início ---------- */
+.topo-home { align-items: center; gap: 12px; padding-top: 4px; }
+.topo-data { display: block; font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; color: var(--ouro); }
+.topo-ola { font: 600 1.45rem/1.2 var(--serif) !important; letter-spacing: -0.02em; color: var(--txt); margin: 4px 0 0; }
+.topo-avatar { padding: 3px; border-radius: 50%; border: 1px solid rgba(201, 162, 39, .55); box-shadow: 0 0 0 4px rgba(201, 162, 39, .07); flex: none; }
+.topo-avatar .avatar { width: 38px; height: 38px; font-size: 1rem; }
+.topo-avatar:active { transform: scale(.95); }

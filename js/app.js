@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.11.4';
+const VERSAO = '2.12.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -525,8 +525,13 @@ function telaInicio() {
 
   return `
     <div class="topo-home">
-      <span>Olá, ${esc(S.perfil.nome)}</span>
-      <span class="avatar mini" style="background:${esc(S.perfil.cor)}">${esc(S.perfil.nome[0])}</span>
+      <div>
+        <span class="topo-data">${esc(DIAS_SEMANA[agora.getDay()])}, ${agora.getDate()} de ${esc(MESES_LONGO[agora.getMonth()])}</span>
+        <h1 class="topo-ola">${agora.getHours() < 5 ? 'Boa noite' : agora.getHours() < 12 ? 'Bom dia' : agora.getHours() < 18 ? 'Boa tarde' : 'Boa noite'}, ${esc(S.perfil.nome)}</h1>
+      </div>
+      <button class="topo-avatar" data-tela-ir="ajustes" aria-label="Ajustes">
+        <span class="avatar" style="background:${esc(S.perfil.cor)}">${esc(S.perfil.nome[0])}</span>
+      </button>
     </div>
 
     <div class="caixa-hero">
