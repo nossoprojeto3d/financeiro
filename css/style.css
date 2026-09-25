@@ -854,3 +854,24 @@ input, select, textarea, .campo { font-size: 16px !important; }
 .hoje-vazio { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0 12px; font-size: .9rem; color: var(--txt-3); }
 .hoje-vazio button { color: var(--ouro); font-weight: 500; font-size: .9rem; }
 .hoje-card + .busca { margin-top: 18px; }
+
+/* ---------- V2.14.1: janelinha de confirmação (confirmar() no app.js) ---------- */
+.dialogo {
+  position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; padding: 24px;
+  background: rgba(0, 0, 0, .6); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  opacity: 0; transition: opacity .18s;
+}
+.dialogo.on { opacity: 1; }
+.dialogo-caixa {
+  width: min(360px, 100%); padding: 22px 20px 16px; border-radius: 24px;
+  background: linear-gradient(180deg, var(--card-2), var(--card)); border: 1px solid var(--borda-forte);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .6);
+  transform: scale(.94); transition: transform .2s cubic-bezier(.2, .8, .2, 1);
+}
+.dialogo.on .dialogo-caixa { transform: scale(1); }
+.dialogo-caixa p { margin: 0 0 18px; font-size: 1rem; line-height: 1.45; color: var(--txt); text-align: center; }
+.dialogo-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.dialogo-acoes .btn { margin: 0; padding: 13px 10px; }
+.dialogo-acoes .btn.link { background: var(--bg); border: 1px solid var(--borda); color: var(--txt-2); }
+.dialogo-acoes .btn:not(.link):not(.perigo) { background: var(--ouro); color: var(--bg); }
+.dialogo-acoes .btn.perigo { background: var(--sai); color: #1d100b; border-color: var(--sai); }
