@@ -771,3 +771,10 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 .topo-avatar { padding: 3px; border-radius: 50%; border: 1px solid rgba(201, 162, 39, .55); box-shadow: 0 0 0 4px rgba(201, 162, 39, .07); flex: none; }
 .topo-avatar .avatar { width: 38px; height: 38px; font-size: 1rem; }
 .topo-avatar:active { transform: scale(.95); }
+
+/* ---------- V2.12.3: painel de baixo sempre dentro da área visível ---------- */
+/* Com o teclado aberto ou com muito conteúdo, o botão de lançar não some */
+.sheet:not(.centro) {
+  bottom: var(--vv-baixo, 0px);
+  max-height: calc(var(--vv-h, 100dvh) - 24px);
+}
