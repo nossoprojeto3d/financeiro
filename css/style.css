@@ -928,3 +928,28 @@ input, select, textarea, .campo { font-size: 16px !important; }
 .falta { border-color: var(--sai) !important; box-shadow: 0 0 0 3px rgba(217, 139, 110, .18); animation: treme .35s; }
 .valor-vis.falta { border: 0; box-shadow: none; color: var(--sai) !important; }
 @keyframes treme { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }
+
+/* ---------- V2.19: calendário do período (Histórico) ---------- */
+.cal { margin-top: 16px; padding: 12px; border-radius: 20px; background: var(--bg); border: 1px solid var(--borda); }
+.cal-topo { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.cal-topo b { font: 600 1.05rem var(--serif); }
+.cal-topo button { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; color: var(--txt-2); }
+.cal-topo button:disabled { opacity: .25; }
+.cal-topo svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cal-semana, .cal-grade { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; }
+.cal-semana span { font-size: .7rem; color: var(--txt-4); padding: 4px 0; }
+.cal-grade { row-gap: 4px; }
+.cal-grade button { position: relative; height: 40px; font-size: .92rem; color: var(--txt); font-variant-numeric: tabular-nums; }
+.cal-grade button:disabled { color: var(--txt-4); opacity: .35; }
+.cal-grade button.hoje { color: var(--ouro-claro); font-weight: 600; }
+/* faixa entre início e fim */
+.cal-grade button.meio { background: rgba(201, 162, 39, .14); }
+.cal-grade button.ini.faixa { background: linear-gradient(90deg, transparent 50%, rgba(201, 162, 39, .14) 50%); }
+.cal-grade button.fim.faixa { background: linear-gradient(90deg, rgba(201, 162, 39, .14) 50%, transparent 50%); }
+.cal-grade button.ini::before, .cal-grade button.fim::before {
+  content: ''; position: absolute; inset: 2px; margin: auto; width: 36px; height: 36px; border-radius: 50%; background: var(--ouro); z-index: 0;
+}
+.cal-grade button.ini, .cal-grade button.fim { color: var(--bg); font-weight: 600; isolation: isolate; }
+.cal-grade button.ini::before, .cal-grade button.fim::before { z-index: -1; }
+.cal-sel { text-align: center; font-size: .9rem; color: var(--txt); margin: 0 0 12px; }
+.cal-sel span { color: var(--txt-4); }

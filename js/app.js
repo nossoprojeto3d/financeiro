@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.18.0';
+const VERSAO = '2.19.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -945,6 +945,8 @@ function textoPeriodo(de, ate) {
   return `${dia(d1)} a ${dia(d2)}`;
 }
 
+// Calendário próprio (padrão de apps de banco): 1º toque = início (apaga o fim),
+// 2º toque = fim. Dias depois de hoje ficam bloqueados.
 function abrirPeriodoHist() {
   const h = S.hist, hj = new Date(), y = hj.getFullYear(), m = hj.getMonth();
   const semana = new Date(y, m, hj.getDate() - ((hj.getDay() + 6) % 7)); // segunda-feira
@@ -953,21 +955,63 @@ function abrirPeriodoHist() {
     ['Esta semana', iso(semana), hoje()], ['Este mês', iso(new Date(y, m, 1)), hoje()],
     ['Mês passado', iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))]
   ];
+  const ref = h.ate ? deISO(h.ate) : hj;
+  const cal = { de: h.de, ate: h.ate, ano: ref.getFullYear(), mes: ref.getMonth() };
   abrirSheet(`
     <div class="sheet-topo"><h2>Ver período</h2><button class="fechar" data-acao="fechar" aria-label="Fechar">×</button></div>
     <div class="chips">${atalhos.map(([r, a, b]) =>
       `<button class="chip ${h.de === a && h.ate === b ? 'ativo' : ''}" data-acao="h-atalho" data-de="${a}" data-ate="${b}">${r}</button>`).join('')}</div>
-    <div class="grupo periodo-datas">
-      <label>De<input type="date" class="campo" id="hp-de" value="${esc(h.de)}" max="${hoje()}"></label>
-      <label>Até<input type="date" class="campo" id="hp-ate" value="${esc(h.ate)}" max="${hoje()}"></label>
-    </div>
-    <p class="dica-nat">Para ver um dia só, coloque a mesma data nos dois.</p>
-    <div class="acoes-form">
-      <button class="btn" data-acao="h-periodo-ok">Ver</button>
-      ${h.de ? '<button class="btn link" data-acao="h-periodo-limpar" style="width:100%">Ver tudo</button>' : ''}
-    </div>`);
-  // escolheu só o "De": o "Até" acompanha
-  $('#hp-de').addEventListener('change', e => { if (!$('#hp-ate').value || $('#hp-ate').value < e.target.value) $('#hp-ate').value = e.target.value; });
+    <div id="cal" class="cal"></div>
+    <div class="acoes-form" id="cal-acoes"></div>`);
+
+  const desenhar = () => {
+    const primeiro = new Date(cal.ano, cal.mes, 1), dias = new Date(cal.ano, cal.mes + 1, 0).getDate();
+    const vazio = (primeiro.getDay() + 6) % 7; // semana começa na segunda
+    const noMesAtual = cal.ano === y && cal.mes === m;
+    let grade = '';
+    for (let k = 0; k < vazio; k++) grade += '<span></span>';
+    for (let d = 1; d <= dias; d++) {
+      const dia = iso(new Date(cal.ano, cal.mes, d));
+      const futuro = dia > hoje();
+      const cls = [
+        dia === cal.de ? 'ini' : '', dia === cal.ate ? 'fim' : '',
+        cal.de && cal.ate && dia > cal.de && dia < cal.ate ? 'meio' : '',
+        cal.de && cal.ate && cal.de !== cal.ate ? 'faixa' : '',
+        dia === hoje() ? 'hoje' : ''
+      ].filter(Boolean).join(' ');
+      grade += `<button class="${cls}" data-dia="${dia}" ${futuro ? 'disabled' : ''}>${d}</button>`;
+    }
+    const nome = MESES_LONGO[cal.mes];
+    $('#cal').innerHTML = `
+      <div class="cal-topo">
+        <button data-cal="-1" aria-label="Mês anterior"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+        <b>${nome[0].toUpperCase() + nome.slice(1)}${cal.ano !== y ? ' ' + cal.ano : ''}</b>
+        <button data-cal="1" aria-label="Próximo mês" ${noMesAtual ? 'disabled' : ''}><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+      </div>
+      <div class="cal-semana">${['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map(x => `<span>${x}</span>`).join('')}</div>
+      <div class="cal-grade">${grade}</div>`;
+    const curto = d => { const x = deISO(d); return `${x.getDate()} de ${MESES[x.getMonth()]}`; };
+    $('#cal-acoes').innerHTML = `
+      <p class="cal-sel">${!cal.de ? 'Toque no dia de início' : !cal.ate ? `${curto(cal.de)} → <span>toque no dia final</span>` : cal.de === cal.ate ? curto(cal.de) : `${curto(cal.de)} → ${curto(cal.ate)}`}</p>
+      <button class="btn" data-acao="h-periodo-ok" ${cal.de && cal.ate ? '' : 'disabled'}>Ver</button>
+      ${h.de ? '<button class="btn link" data-acao="h-periodo-limpar" style="width:100%">Ver tudo</button>' : ''}`;
+  };
+
+  $('#cal').addEventListener('click', e => {
+    const nav = e.target.closest('[data-cal]');
+    if (nav && !nav.disabled) {
+      const d = new Date(cal.ano, cal.mes + Number(nav.dataset.cal), 1);
+      cal.ano = d.getFullYear(); cal.mes = d.getMonth(); return desenhar();
+    }
+    const b = e.target.closest('[data-dia]');
+    if (!b || b.disabled) return;
+    const dia = b.dataset.dia;
+    if (!cal.de || cal.ate || dia < cal.de) { cal.de = dia; cal.ate = ''; } // começa de novo
+    else cal.ate = dia;                                                     // fecha o intervalo
+    desenhar();
+  });
+  S.cal = cal;
+  desenhar();
 }
 
 function aplicarPeriodoHist(de, ate) {
@@ -1793,7 +1837,7 @@ document.addEventListener('click', e => {
     case 'h-tipo': S.hist.tipo = el.dataset.v; S.hist.limite = 60; return render();
     case 'h-periodo': return abrirPeriodoHist();
     case 'h-atalho': return aplicarPeriodoHist(el.dataset.de, el.dataset.ate);
-    case 'h-periodo-ok': return aplicarPeriodoHist($('#hp-de').value, $('#hp-ate').value || $('#hp-de').value);
+    case 'h-periodo-ok': return S.cal?.de && S.cal?.ate && aplicarPeriodoHist(S.cal.de, S.cal.ate);
     case 'h-periodo-limpar': return aplicarPeriodoHist('', '');
     case 'h-lupa':
       S.hist.buscando = !(S.hist.buscando || S.hist.busca);
