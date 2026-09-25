@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.12.3';
+const VERSAO = '2.12.4';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -82,7 +82,9 @@ function ajustarAreaVisivel() {
   r.setProperty('--vv-h', v.height + 'px');
   r.setProperty('--vv-top', v.offsetTop + 'px');
   // quanto do fim da tela está coberto (teclado): o painel de baixo fica acima disso
-  r.setProperty('--vv-baixo', Math.max(0, innerHeight - v.offsetTop - v.height) + 'px');
+  const baixo = Math.max(0, innerHeight - v.offsetTop - v.height);
+  r.setProperty('--vv-baixo', baixo + 'px');
+  document.documentElement.classList.toggle('teclado-aberto', baixo > 120);
 }
 window.visualViewport?.addEventListener('resize', ajustarAreaVisivel);
 window.visualViewport?.addEventListener('scroll', ajustarAreaVisivel);
