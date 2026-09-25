@@ -1,5 +1,5 @@
 // Financeiro NP3D (Nosso Projeto 3D)
-const VERSAO = '3.0.1';
+const VERSAO = '3.0.2';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -1428,7 +1428,7 @@ function telaAjustes() {
       <div class="secao-topo"><h2>Segurança</h2></div>
       <div class="bloco" style="padding-top:4px;padding-bottom:4px">
         ${Lock.celular() ? `<button class="opcao" data-acao="${Lock.ativo() ? 'faceid-off' : 'faceid-on'}">
-          <span>Face ID ao abrir<small>Pede o Face ID depois de 15 minutos sem usar o app</small></span>
+          <span>Face ID ao abrir<small>Pede o Face ID depois de 5 minutos sem usar o app</small></span>
           <span class="dir ${Lock.ativo() ? 'on' : ''}">${Lock.ativo() ? 'Ativado' : 'Ativar'}</span>
         </button>` : ''}
         <button class="opcao" data-acao="sair"><span>Sair da conta<small>Pede a senha na próxima vez</small></span><span class="dir">Sair</span></button>
@@ -1838,8 +1838,8 @@ document.addEventListener('input', e => {
 $('#sheet-fundo').addEventListener('click', fecharSheet);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) fecharSheet(); });
 
-// Trava com Face ID depois de 15 min sem usar o app (vale também se o iPhone fechou o app)
-const TEMPO_TRAVA = 15 * 60e3;
+// Trava com Face ID depois de 5 min sem usar o app (vale também se o iPhone fechou o app)
+const TEMPO_TRAVA = 5 * 60e3;
 function marcarUso() {
   // só conta uso com o app destravado (a tela de desbloqueio não renova o tempo)
   if (!$('#shell').hidden) try { localStorage.setItem('caixa_ultimo_uso', String(Date.now())); } catch (_) {}
