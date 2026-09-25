@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.19.0';
+const VERSAO = '2.19.1';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -573,9 +573,9 @@ function telaInicio() {
 
       <div class="valor-vis ${f.centavos ? '' : 'vazio'}" id="f-valor" aria-live="polite">${esc(fmt(f.centavos / 100))}</div>
 
-      <div id="f-cats">${seletorCatHTML(c)}</div>
       <input id="f-desc" class="campo" maxlength="120" value="${esc(f.descricao)}" enterkeyhint="done"
         placeholder="${f.tipo === 'entrada' ? 'Descrição · ex.: pedido Shopee #1234' : 'Descrição · ex.: 3 rolos PLA preto'}">
+      <div id="f-cats">${seletorCatHTML(c)}</div>
       <button class="linha-mais" data-acao="f-detalhes">
         <span>Mais detalhes</span><small id="f-resumo">${esc(resumoDetalhes(f))}</small>
         <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
@@ -795,8 +795,8 @@ async function salvarForm() {
   const f = S.form;
   // Valor, categoria e descrição são obrigatórios; o resto é opcional
   if (!f.centavos) { marcarFalta('#f-valor'); toast('Digite o valor.', true); return; }
-  if (!f.categoria_id) { marcarFalta('.lancar .seletor-cat'); toast('Escolha uma categoria.', true); abrirPainelCat(true); return; }
   if (!f.descricao.trim()) { marcarFalta('#f-desc'); toast('Escreva a descrição.', true); $('#f-desc')?.focus(); return; }
+  if (!f.categoria_id) { marcarFalta('.lancar .seletor-cat'); toast('Escolha uma categoria.', true); abrirPainelCat(true); return; }
   const dados = {
     tipo: f.tipo, valor: f.centavos / 100, categoria_id: f.categoria_id, data: f.data,
     descricao: f.descricao.trim() || null, forma_pagamento: f.forma_pagamento || null, usuario_id: f.usuario_id
