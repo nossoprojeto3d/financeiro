@@ -1,5 +1,5 @@
 // Financeiro NP3D (Nosso Projeto 3D)
-const VERSAO = '2.19.4';
+const VERSAO = '3.0.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -29,7 +29,9 @@ function dataBonita(s) {
   const ano = d.getFullYear() !== new Date().getFullYear() ? ` de ${d.getFullYear()}` : '';
   return `${d.getDate()} de ${MESES_LONGO[d.getMonth()]}${ano}`;
 }
-function soma(lista) { return lista.reduce((a, l) => a + l.valor, 0); }
+// Soma em centavos inteiros: evita 0,1 + 0,2 = 0,30000000000000004
+const cent = v => Math.round((v || 0) * 100);
+function soma(lista) { return lista.reduce((a, l) => a + cent(l.valor), 0) / 100; }
 
 const PAGAMENTOS = ['Pix', 'Cartão de crédito', 'Cartão de débito', 'Dinheiro', 'Boleto', 'Transferência'];
 const NATUREZAS = {
@@ -56,12 +58,23 @@ const S = {
   recorrentes: [], geradoEm: 0,
   ia: null // { chave, estado: 'carregando' | 'ok' | 'erro', analise, erro, em }
 };
-const cat = id => S.categorias.find(c => c.id === id);
-const perfil = id => S.perfis.find(p => p.id === id);
-function corCategoria(id) {
-  const i = S.categorias.findIndex(c => c.id === id);
-  return Charts.cor(i < 0 ? 0 : i);
-}
+// Índices para achar categoria e pessoa sem percorrer a lista a cada lançamento.
+// Refeitos sozinhos quando a lista é trocada ou ganha/perde itens.
+const indice = (() => {
+  const memo = new Map();
+  return (nome, lista) => {
+    const m = memo.get(nome);
+    if (m && m.lista === lista && m.tam === lista.length) return m.mapa;
+    const mapa = new Map(lista.map((x, i) => [x.id, { x, i }]));
+    memo.set(nome, { lista, tam: lista.length, mapa });
+    return mapa;
+  };
+})();
+const cat = id => indice('cat', S.categorias).get(id)?.x;
+const perfil = id => indice('perfil', S.perfis).get(id)?.x;
+function corCategoria(id) { return Charts.cor(indice('cat', S.categorias).get(id)?.i ?? 0); }
+// A cor da pessoa vem do banco e vai para o estilo da página: só aceita código de cor
+const corSegura = c => (/^#[0-9a-f]{3,8}$/i.test(c || '') ? c : '#C9A227');
 
 /* ===================== Toast ===================== */
 let toastT;
@@ -352,7 +365,7 @@ async function sincronizar() {
     const antes = new Set(S.lancs.map(x => x.id));
     const deOutros = novosLancs.filter(x => !antes.has(x.id) && x.usuario_id !== S.perfil.id);
     S.lancs = novosLancs; S.categorias = c;
-    try { localStorage.setItem('caixa_cache', JSON.stringify({ p: S.perfis, c, l: novosLancs })); } catch (_) {}
+    try { localStorage.setItem('caixa_cache', JSON.stringify({ p: S.perfis, c, l: novosLancs, rc })); } catch (_) {}
 
     if (S.tela === 'historico' && $('#h-res')) $('#h-res').innerHTML = histResultados();
     else render();
@@ -478,75 +491,9 @@ async function salvarOrdem(ids) {
 }
 
 /* ===================== Início ===================== */
-function itemLanc(l, mostrarData = false) {
-  const c = cat(l.categoria_id), u = perfil(l.usuario_id);
-  const sub = [mostrarData ? dataBonita(l.data) : null, u?.nome, l.forma_pagamento].filter(Boolean).join(' · ');
-  return `
-    <button class="item" data-acao="editar" data-id="${l.id}">
-      <span class="ponto" style="background:${corCategoria(l.categoria_id)}"></span>
-      <span class="meio">
-        <span class="titulo">${esc(l.descricao || c?.nome || 'Sem categoria')}</span>
-        <span class="sub">${esc(l.descricao ? (c?.nome || '') + (sub ? ' · ' + sub : '') : sub)}</span>
-      </span>
-      <span class="v ${l.tipo === 'entrada' ? 'e' : 's'}">${l.tipo === 'entrada' ? '+' : '−'} ${esc(fmt(l.valor))}</span>
-    </button>`;
-}
-
-function itemCompacto(l) {
-  const c = cat(l.categoria_id);
-  return `
-    <button class="item compacto" data-acao="editar" data-id="${l.id}">
-      <span class="meio">
-        <span class="titulo">${esc(l.descricao || c?.nome || 'Sem categoria')}</span>
-        <span class="sub">${esc(dataBonita(l.data))}</span>
-      </span>
-      <span class="v ${l.tipo === 'entrada' ? 'e' : 's'}">${l.tipo === 'entrada' ? '+' : '−'} ${esc(fmt(l.valor))}</span>
-    </button>`;
-}
-
-// Linha do saldo nos últimos 60 dias, apagada ao fundo do cartão do saldo.
-// Sem movimento suficiente, não desenha nada (não inventa tendência).
-function linhaSaldo() {
-  const dias = 60, fim = new Date(), ini = new Date(fim.getFullYear(), fim.getMonth(), fim.getDate() - dias);
-  const inicio = iso(ini);
-  let saldo = 0;
-  const porDia = {};
-  for (const l of S.lancs) {
-    const v = l.tipo === 'entrada' ? l.valor : -l.valor;
-    if (l.data < inicio) saldo += v;
-    else porDia[l.data] = (porDia[l.data] || 0) + v;
-  }
-  if (Object.keys(porDia).length < 2) return '';
-  const pts = [];
-  for (let i = 0; i <= dias; i++) {
-    const d = iso(new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + i));
-    saldo += porDia[d] || 0;
-    pts.push(saldo);
-  }
-  const min = Math.min(...pts), max = Math.max(...pts);
-  if (max === min) return '';
-  // Um ponto a cada 4 dias e curva suave, para não virar degraus
-  const P = pts.filter((_, i) => i % 4 === 0 || i === dias)
-    .map((v, i, a) => [i / (a.length - 1) * 300, 90 - (v - min) / (max - min) * 64]);
-  const f = n => n.toFixed(1);
-  let linha = `M${f(P[0][0])} ${f(P[0][1])}`;
-  for (let i = 0; i < P.length - 1; i++) {
-    const a = P[i - 1] || P[i], b = P[i], c = P[i + 1], d = P[i + 2] || c;
-    linha += `C${f(b[0] + (c[0] - a[0]) / 6)} ${f(b[1] + (c[1] - a[1]) / 6)} ${f(c[0] - (d[0] - b[0]) / 6)} ${f(c[1] - (d[1] - b[1]) / 6)} ${f(c[0])} ${f(c[1])}`;
-  }
-  return `
-    <svg class="hero-linha" viewBox="0 0 300 100" preserveAspectRatio="none" aria-hidden="true">
-      <defs><linearGradient id="hero-area" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stop-color="#C9A227" stop-opacity=".18"/><stop offset="1" stop-color="#C9A227" stop-opacity="0"/>
-      </linearGradient></defs>
-      <path d="${linha}L300 100L0 100Z" fill="url(#hero-area)"/>
-      <path d="${linha}" class="traco" vector-effect="non-scaling-stroke"/>
-    </svg>`;
-}
-
 function telaInicio() {
   const agora = new Date();
-  const caixa = soma(S.lancs.filter(l => l.tipo === 'entrada')) - soma(S.lancs.filter(l => l.tipo === 'saida'));
+  const caixa = saldoCaixa();
   if (!S.form) S.form = novoForm('entrada');
   const f = S.form;
   const c = cat(f.categoria_id);
@@ -559,7 +506,7 @@ function telaInicio() {
         <div class="topo-saldo"><small>Em caixa${S.offline ? ' (offline)' : ''}</small><b class="${caixa < 0 ? 'neg' : ''}">${esc(fmt(caixa))}</b></div>
       </div>
       <button class="topo-avatar" data-tela-ir="ajustes" aria-label="Ajustes">
-        <span class="avatar" style="background:${esc(S.perfil.cor)}">${esc(S.perfil.nome[0])}</span>
+        <span class="avatar" style="background:${corSegura(S.perfil.cor)}">${esc(S.perfil.nome[0])}</span>
       </button>
     </div>
 
@@ -734,7 +681,7 @@ function renderPainelCats() {
     <div class="sheet-topo"><h2>Categoria</h2><button class="fechar" data-acao="f-cat-fechar" aria-label="Fechar">×</button></div>
     <div class="bloco-lista lista-cat">
       ${lista.map(c => `
-        <button class="item ${f.categoria_id === c.id ? 'escolhida' : ''}" data-acao="f-cat" data-id="${c.id}" data-nome="${esc(c.nome.toLowerCase())}">
+        <button class="item ${f.categoria_id === c.id ? 'escolhida' : ''}" data-acao="f-cat" data-id="${c.id}">
           <span class="ponto" style="background:${corCategoria(c.id)}"></span>
           <span class="meio"><span class="titulo">${esc(c.nome)}</span><span class="sub">${esc(nomeNatureza(c.natureza))}</span></span>
           ${f.categoria_id === c.id ? '<svg class="check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>' : ''}
@@ -769,7 +716,8 @@ async function criarCategoriaForm() {
   if (!nome) return toast('Dê um nome para a categoria.', true);
   const existe = S.categorias.find(c => c.tipo === f.tipo && c.nome.toLowerCase() === nome.toLowerCase());
   if (existe) {
-    if (!existe.ativa) { const r = await Api.editarCategoria(existe.id, { ativa: true }); Object.assign(existe, r); }
+    try { if (!existe.ativa) Object.assign(existe, await Api.editarCategoria(existe.id, { ativa: true })); }
+    catch (e) { return tratarErro(e); }
     f.categoria_id = existe.id; f.novaCat = null; abrirPainelCat(false); return;
   }
   try {
@@ -796,8 +744,9 @@ async function salvarForm() {
   try {
     if (f.id) {
       const r = await Api.editarLancamento(f.id, dados);
-      const i = S.lancs.findIndex(l => l.id === f.id);
-      S.lancs[i] = { ...r, valor: Number(r.valor) };
+      if (!r) throw new Error('Esse lançamento foi excluído em outro aparelho.');
+      const i = S.lancs.findIndex(l => l.id === f.id), novo = { ...r, valor: Number(r.valor) };
+      if (i >= 0) S.lancs[i] = novo; else S.lancs.push(novo);
     } else if (f.repetir) {
       // Cria a regra e deixa o banco lançar este mês (e os anteriores, se a data for antiga)
       const { data, ...resto } = dados;
@@ -834,7 +783,7 @@ function terminarForm(tipo, saldos = null) {
   else if (volta && volta !== 'inicio') irPara(volta); else render();
 }
 
-const saldoCaixa = () => soma(S.lancs.filter(l => l.tipo === 'entrada')) - soma(S.lancs.filter(l => l.tipo === 'saida'));
+const saldoCaixa = () => S.lancs.reduce((a, l) => a + (l.tipo === 'entrada' ? 1 : -1) * cent(l.valor), 0) / 100;
 
 function animarSaldo(de, para) {
   const el = $('.topo-saldo b'); if (!el) return;
@@ -1050,7 +999,10 @@ function intervalo(f) {
     case '6m': return { de: iso(new Date(y, m - 5, 1)), ate: hoje() };
     case '12m': return { de: iso(new Date(y, m - 11, 1)), ate: hoje() };
     case 'ano': return { de: `${y}-01-01`, ate: hoje() };
-    case 'custom': return { de: f.de || '0000-01-01', ate: f.ate || hoje() };
+    case 'custom': {
+      const de = f.de || '0000-01-01', ate = f.ate || hoje();
+      return de <= ate ? { de, ate } : { de: ate, ate: de }; // datas trocadas: acerta a ordem
+    }
     default: return { de: '0000-01-01', ate: hoje() };
   }
 }
@@ -1077,7 +1029,8 @@ function aplicaFiltros(l, f, { tipo = true, categoria = true } = {}) {
 }
 function porNatureza(lista) {
   const r = { venda: 0, aporte: 0, outra: 0, variavel: 0, fixa: 0, investimento: 0 };
-  lista.forEach(l => { const n = cat(l.categoria_id)?.natureza; if (n in r) r[n] += l.valor; });
+  lista.forEach(l => { const n = cat(l.categoria_id)?.natureza; if (n in r) r[n] += cent(l.valor); });
+  for (const k in r) r[k] /= 100;
   return r;
 }
 function mesesEntre(iv) {
@@ -1115,21 +1068,21 @@ function analise(iv, ivAnt) {
     depAporte: n.venda + n.aporte > 0 ? n.aporte / (n.venda + n.aporte) : null,
     ent: soma(per.filter(l => l.tipo === 'entrada')),
     sai: soma(per.filter(l => l.tipo === 'saida')),
-    variacaoCaixa: soma(per.filter(l => l.tipo === 'entrada')) - soma(per.filter(l => l.tipo === 'saida')),
     vendasMes: n.venda / meses,
     fixaMes: n.fixa / meses,
     opMes: operacional / meses,
     cresc: null, ant: null
   };
+  r.variacaoCaixa = (cent(r.ent) - cent(r.sai)) / 100;
   r.equilibrio = r.mcPct > 0 ? r.fixaMes / r.mcPct : null;
   if (ivAnt) {
-    const a = porNatureza(S.lancs.filter(l => noIntervalo(l, ivAnt)));
     const la = S.lancs.filter(l => noIntervalo(l, ivAnt));
+    const a = porNatureza(la);
     r.ant = { venda: a.venda, operacional: a.venda - a.variavel - a.fixa,
       resultado: la.length ? soma(la.filter(l => l.tipo === 'entrada')) - soma(la.filter(l => l.tipo === 'saida')) : null };
     if (a.venda > 0) r.cresc = (n.venda - a.venda) / a.venda;
   }
-  r.caixa = soma(S.lancs.filter(l => l.tipo === 'entrada')) - soma(S.lancs.filter(l => l.tipo === 'saida'));
+  r.caixa = saldoCaixa();
   r.folego = operacional < 0 ? r.caixa / (-r.opMes) : null;
 
   // Retorno dos equipamentos (todo o histórico)
@@ -1142,8 +1095,9 @@ function analise(iv, ivAnt) {
   // Canais de venda e destino do dinheiro
   const agrupar = lista => {
     const g = {};
-    lista.forEach(l => { const k = l.categoria_id; g[k] = g[k] || { id: k, valor: 0, qtd: 0 }; g[k].valor += l.valor; g[k].qtd++; });
-    return Object.values(g).sort((a, b) => b.valor - a.valor).map(x => ({ ...x, nome: cat(x.id)?.nome || '—', cor: corCategoria(x.id) }));
+    lista.forEach(l => { const k = l.categoria_id; g[k] = g[k] || { id: k, valor: 0, qtd: 0 }; g[k].valor += cent(l.valor); g[k].qtd++; });
+    return Object.values(g).map(x => ({ ...x, valor: x.valor / 100 })).sort((a, b) => b.valor - a.valor)
+      .map(x => ({ ...x, nome: cat(x.id)?.nome || '—', cor: corCategoria(x.id) }));
   };
   r.canais = agrupar(vendasL);
   r.destinos = agrupar(per.filter(l => l.tipo === 'saida'));
@@ -1223,8 +1177,6 @@ function mesesGrafico(iv) {
   return meses;
 }
 
-const MESES_LONGOS = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-
 // "1 – 24 de setembro", "agosto de 2026", "jul – set 2026"
 function rotuloPeriodo(iv) {
   let de = iv.de;
@@ -1237,8 +1189,8 @@ function rotuloPeriodo(iv) {
   const fimDoMes = b.getDate() === new Date(b.getFullYear(), b.getMonth() + 1, 0).getDate();
   if (mesmoMes) {
     const ano = b.getFullYear() !== anoAtual ? ` de ${b.getFullYear()}` : '';
-    if (a.getDate() === 1 && fimDoMes) return `${MESES_LONGOS[b.getMonth()]}${ano || ` de ${b.getFullYear()}`}`;
-    return `${a.getDate() === b.getDate() ? '' : a.getDate() + ' – '}${b.getDate()} de ${MESES_LONGOS[b.getMonth()]}${ano}`;
+    if (a.getDate() === 1 && fimDoMes) return `${MESES_LONGO[b.getMonth()]}${ano || ` de ${b.getFullYear()}`}`;
+    return `${a.getDate() === b.getDate() ? '' : a.getDate() + ' – '}${b.getDate()} de ${MESES_LONGO[b.getMonth()]}${ano}`;
   }
   if (a.getFullYear() === b.getFullYear()) return `${MESES[a.getMonth()]} – ${MESES[b.getMonth()]} ${b.getFullYear()}`;
   return `${MESES[a.getMonth()]} ${a.getFullYear()} – ${MESES[b.getMonth()]} ${b.getFullYear()}`;
@@ -1293,8 +1245,8 @@ function telaGestao() {
       ${PERIODOS.map(([v, r]) => `<button class="chip ${f.periodo === v ? 'ativo' : ''}" data-acao="g-periodo" data-v="${v}">${r}</button>`).join('')}
     </div>
     ${f.periodo === 'custom' ? `<div class="filtros">
-      <input type="date" data-filtro="de" value="${esc(f.de)}" aria-label="De">
-      <input type="date" data-filtro="ate" value="${esc(f.ate)}" aria-label="Até"></div>` : ''}`;
+      <input type="date" data-filtro="de" value="${esc(f.de)}" max="${hoje()}" aria-label="De">
+      <input type="date" data-filtro="ate" value="${esc(f.ate)}" max="${hoje()}" aria-label="Até"></div>` : ''}`;
 
   if (!a) return `${topo}${periodos}${painelPeriodo(null)}`;
 
@@ -1349,7 +1301,7 @@ function telaGestao() {
     .filter(c => f.tipo === 'todos' || c.tipo === f.tipo);
   const porPessoa = S.perfis.map(p => {
     const lp = lista.filter(l => l.usuario_id === p.id);
-    return { rotulo: p.nome, cor: p.cor, valor: lp.length, texto: `${lp.length} lançamento${lp.length === 1 ? '' : 's'}` };
+    return { rotulo: p.nome, cor: corSegura(p.cor), valor: lp.length, texto: `${lp.length} lançamento${lp.length === 1 ? '' : 's'}` };
   });
 
   return `
@@ -1434,7 +1386,8 @@ function exportarCSV() {
   const f = S.filtros, iv = intervalo(f);
   const lista = S.lancs.filter(l => noIntervalo(l, iv) && aplicaFiltros(l, f));
   if (!lista.length) return toast('Nada para exportar nesse filtro.', true);
-  const campo = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  // Texto começando com = + - @ viraria fórmula no Excel: o apóstrofo força texto
+  const campo = v => { let t = String(v ?? ''); if (/^[=+\-@\t\r]/.test(t)) t = "'" + t; return `"${t.replace(/"/g, '""')}"`; };
   const linhas = [['Data', 'Tipo', 'Categoria', 'Natureza', 'Valor', 'Descrição', 'Pagamento', 'Quem'].map(campo).join(';')];
   lista.forEach(l => {
     const c = cat(l.categoria_id);
@@ -1465,7 +1418,7 @@ function telaAjustes() {
     <section class="secao">
       <div class="bloco">
         <div class="perfil-linha">
-          <span class="avatar" style="background:${esc(S.perfil.cor)}">${esc(S.perfil.nome[0])}</span>
+          <span class="avatar" style="background:${corSegura(S.perfil.cor)}">${esc(S.perfil.nome[0])}</span>
           <div><strong>${esc(S.perfil.nome)}</strong><br><span class="pequeno muted">${esc(Api.sessao().user.email)}</span></div>
         </div>
       </div>
@@ -1857,7 +1810,6 @@ document.addEventListener('click', e => {
       return carregarTudo().then(() => { render(); if (!S.offline) toast('Dados atualizados'); }).catch(tratarErro);
     case 'sair':
       return confirmar('Sair da conta neste aparelho?', { ok: 'Sair' }).then(ok => { if (ok) { Lock.desativar(); Api.sair().then(() => telaLogin()); } });
-      return;
   }
 });
 

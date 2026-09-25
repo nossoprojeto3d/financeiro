@@ -1,4 +1,4 @@
-// Supabase Edge Function "analise" — Caixa · Nosso Projeto 3D
+// Supabase Edge Function "analise" — Financeiro NP3D
 // Recebe o resumo financeiro do período (só números agregados) e pede
 // ao Gemini um diagnóstico em linguagem simples.
 // A chave do Gemini fica guardada como segredo no Supabase, nunca no app.
@@ -7,11 +7,31 @@
 //   GEMINI_API_KEY  → chave criada em aistudio.google.com (grátis)
 //   GEMINI_MODEL    → opcional; padrão "gemini-flash-latest"
 
+// Só o endereço do app pode chamar esta função pelo navegador
+const ORIGEM = 'https://nossoprojeto3d.github.io';
 const CORS = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': ORIGEM,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS'
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Vary': 'Origin'
 };
+const LIMITE_BYTES = 20000; // os totais de um período cabem folgados nisso
+
+// Confere se quem chama é um dos usuários do app (tem perfil no banco).
+// Sem isso, qualquer um com a chave pública gastaria a cota grátis do Gemini.
+async function ehMembro(req: Request): Promise<boolean> {
+  const url = Deno.env.get('SUPABASE_URL'), anon = Deno.env.get('SUPABASE_ANON_KEY');
+  const auth = req.headers.get('Authorization') || '';
+  if (!url || !anon || !auth.startsWith('Bearer ')) return false;
+  const h = { apikey: anon, Authorization: auth };
+  const u = await fetch(`${url}/auth/v1/user`, { headers: h });
+  if (!u.ok) return false;
+  const { id } = await u.json();
+  if (!id) return false;
+  // As regras do banco (RLS) só devolvem perfis para quem é membro
+  const p = await fetch(`${url}/rest/v1/perfis?select=id&id=eq.${encodeURIComponent(id)}`, { headers: h });
+  return p.ok && (await p.json()).length === 1;
+}
 
 const INSTRUCOES = `Você é um consultor financeiro de pequenos negócios no Brasil.
 Está ajudando um casal que acabou de abrir uma pequena empresa de impressão 3D
@@ -39,13 +59,19 @@ Deno.serve(async req => {
   const json = (b: unknown, status = 200) =>
     new Response(JSON.stringify(b), { status, headers: { ...CORS, 'Content-Type': 'application/json' } });
 
+  if (req.method !== 'POST') return json({ erro: 'Método não permitido.' }, 405);
+
   try {
+    if (!(await ehMembro(req))) return json({ erro: 'Sem permissão.' }, 401);
+    const bruto = await req.text();
+    if (bruto.length > LIMITE_BYTES) return json({ erro: 'Dados grandes demais para analisar.' }, 413);
+
     const chave = Deno.env.get('GEMINI_API_KEY');
     if (!chave) return json({ erro: 'A chave do Gemini não foi configurada no Supabase.' }, 500);
     const modelo = Deno.env.get('GEMINI_MODEL') || 'gemini-flash-latest';
 
-    const { dados } = await req.json();
-    if (!dados) return json({ erro: 'Sem dados para analisar.' }, 400);
+    const { dados } = JSON.parse(bruto || '{}');
+    if (!dados || typeof dados !== 'object') return json({ erro: 'Sem dados para analisar.' }, 400);
 
     const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
       method: 'POST',
@@ -58,13 +84,14 @@ Deno.serve(async req => {
     });
     const j = await r.json();
     if (!r.ok) {
-      const msg = j?.error?.message || `Erro ${r.status}`;
-      return json({ erro: r.status === 429 ? 'Limite grátis do Gemini atingido. Tente de novo mais tarde.' : msg }, 502);
+      console.error('Gemini', r.status, j?.error?.message);
+      return json({ erro: r.status === 429 ? 'Limite grátis do Gemini atingido. Tente de novo mais tarde.' : 'A IA não respondeu agora. Tente de novo.' }, 502);
     }
     const texto = (j.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('');
     const limpo = texto.replace(/```json|```/g, '').trim();
     return json({ analise: JSON.parse(limpo) });
   } catch (e) {
-    return json({ erro: 'Não foi possível gerar a análise agora. Tente de novo.' , detalhe: String(e) }, 500);
+    console.error('analise', e); // detalhe só nos logs do Supabase, nunca na resposta
+    return json({ erro: 'Não foi possível gerar a análise agora. Tente de novo.' }, 500);
   }
 });

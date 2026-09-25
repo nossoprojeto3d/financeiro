@@ -9,6 +9,10 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Financeiro NP3D">
   <meta name="robots" content="noindex, nofollow">
+  <!-- Segurança: a página só roda código do próprio app, só carrega as fontes do Google
+       e só conversa com o Supabase do projeto. Qualquer outro endereço é bloqueado. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src 'self' https://sruvkpqzpjqeqkesqffq.supabase.co; manifest-src 'self'; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Financeiro NP3D</title>
   <!-- Cartão do link (WhatsApp e redes), no mesmo estilo do site e do catálogo -->
   <meta name="description" content="Caixa e gestão financeira do Nosso Projeto 3D.">

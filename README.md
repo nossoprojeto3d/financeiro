@@ -51,6 +51,10 @@ Sem os passos 2 a 4, o app funciona normalmente e só o botão de IA avisa que f
 ### 5. Ordem das categorias (~1 min)
 No SQL Editor do Supabase, cole o arquivo `supabase/v2-ordem.sql` inteiro e clique em **Run**. Depois disso, em Ajustes, segure a alça (≡) de uma categoria e arraste para mudar a ordem. A lista na hora de lançar segue essa ordem.
 
+### 6. Reforço de segurança (versão 3.0, ~3 min)
+1. **Banco:** no SQL Editor do Supabase, cole o arquivo `supabase/v3-seguranca.sql` inteiro e clique em **Run**. A última parte lista as regras novas.
+2. **Função da IA:** em **Edge Functions › analise**, apague o código, cole de novo o conteúdo de `supabase/functions/analise/index.ts` e clique em **Deploy**. A função passa a atender só o Junior e a Thai.
+
 ## Observações
 
 - **IA e privacidade:** só vão para o Gemini os totais (vendas, gastos por categoria, canais, meses). Descrições dos lançamentos e nomes de clientes não são enviados. No plano grátis, o Google pode usar o que recebe para melhorar os produtos dele. Se um dia o modelo padrão mudar de nome, crie o segredo `GEMINI_MODEL` com o nome novo que aparece no AI Studio.

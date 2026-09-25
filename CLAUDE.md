@@ -2,7 +2,7 @@
 
 ## O que é
 **Nome do app: Financeiro NP3D** (use sempre esse nome: título, ícone na tela de início, manifest).
-PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 2.19.4.
+PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 3.0.0.
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
@@ -26,6 +26,7 @@ Fundo `#120E09`, cards `#17130D`, bordas `#241C12` / `#3A3226`, dourado `#C9A227
 - `sw.js`: service worker (rede primeiro, cache offline). **Ao publicar mudanças, suba o número em `CACHE`** e em `VERSAO` no `app.js`.
 - `supabase/setup.sql`: tabelas, segurança (RLS) e categorias iniciais.
 - `supabase/v2.sql`: lançamentos que se repetem (tabela `recorrentes` e função `gerar_recorrentes`).
+- `supabase/v3-seguranca.sql`: reforços de segurança (cor válida, tamanhos, data não futura, função com caminho fixo, índices).
 - `supabase/v2-ordem.sql`: coluna `ordem` nas categorias (ordem manual, arrastando em Ajustes). Sem ela, o app ordena pelas mais usadas.
 - `supabase/functions/analise/index.ts`: Edge Function que chama o Gemini. A chave fica no segredo `GEMINI_API_KEY` do Supabase.
 
@@ -41,6 +42,11 @@ Fundo `#120E09`, cards `#17130D`, bordas `#241C12` / `#3A3226`, dourado `#C9A227
 - **O Início é a tela de lançar:** entrada/saída, valor num teclado numérico do próprio app (não usa o teclado do iPhone, que cobria o botão), categoria, descrição, "Mais detalhes" (popup com data, repetir, pagamento e quem fez) e o botão Lançar. Editar um lançamento (tocando no Histórico) abre nessa mesma tela. Os recentes ficam só no Histórico.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.
+- **Regra de segurança da página (CSP) no `index.html`:** só roda código do próprio app, só carrega fontes do Google e só conversa com o Supabase do projeto. Se trocar o projeto do Supabase, troque o endereço também no `connect-src` dessa regra. Não use `<script>` inline nem código de outro site.
+- **Valores em dinheiro:** some sempre em centavos (`cent()` e `soma()` no `app.js`), nunca somando decimais direto.
+- **Cor de perfil vinda do banco:** passe por `corSegura()` antes de pôr num `style`.
+- **Função da IA (`analise`):** só atende quem tem perfil no banco e só o endereço do app. Mudou o arquivo? Republique no Supabase (Edge Functions).
+- **Versão de lançamento:** `v3.0.0` (etiqueta no git). Para voltar: `git checkout v3.0.0`.
 - **Face ID só depois de um toque.** Chamar `Lock.verificar()` sem um toque do usuário faz o iPhone mostrar antes a tela "Iniciar sessão… Usar chave-senha". Na trava, qualquer toque na tela chama o Face ID direto.
 - **Não usar `confirm()`, `alert()` nem `prompt()`.** No iPhone com o app instalado, a chamada ao banco feita logo depois de um `confirm()` falha como "Load failed" (o app mostra "Sem conexão com a internet"). Para confirmar ações, use `await confirmar(texto, { ok })` no `app.js`, que abre uma janelinha própria do app.
 
