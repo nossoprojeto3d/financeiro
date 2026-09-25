@@ -1,7 +1,7 @@
 # Contexto do projeto: Caixa · Nosso Projeto 3D
 
 ## O que é
-PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 2.12.0.
+PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 2.12.1.
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
@@ -39,6 +39,7 @@ Fundo `#120E09`, cards `#17130D`, bordas `#241C12` / `#3A3226`, dourado `#C9A227
 - O app atualiza sozinho a cada 30 s com o app aberto e na hora em que volta para a tela, sem interromper um formulário aberto.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.
+- **Face ID só depois de um toque.** Chamar `Lock.verificar()` sem um toque do usuário faz o iPhone mostrar antes a tela "Iniciar sessão… Usar chave-senha". Na trava, qualquer toque na tela chama o Face ID direto.
 - **Não usar `confirm()`, `alert()` nem `prompt()`.** No iPhone com o app instalado, a chamada ao banco feita logo depois de um `confirm()` falha como "Load failed" (o app mostra "Sem conexão com a internet"). Para confirmar ações, use `await confirmar(texto, { ok })` no `app.js`, que abre uma janelinha própria do app.
 
 ## Decisões já tomadas (não refazer)

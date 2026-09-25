@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.12.0';
+const VERSAO = '2.12.1';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -133,6 +133,7 @@ function logoMarca() {
 function mostrarPorta(html) {
   $('#shell').hidden = true;
   const p = $('#porta');
+  p.onclick = null;
   p.hidden = false;
   p.innerHTML = html;
 }
@@ -242,13 +243,18 @@ function telaBloqueio() {
       <button class="btn link" id="btn-senha">Entrar com senha</button>
       <p class="erro" id="bloq-erro" style="text-align:center"></p>
     </div>`);
-  const tentar = async (auto = false) => {
+  // Não pede sozinho ao abrir: sem um toque, o iPhone mostra antes a tela "Usar chave-senha".
+  // Com o toque, vai direto para o Face ID. Qualquer toque na tela serve.
+  let tentando = false;
+  const tentar = async () => {
+    if (tentando) return;
+    tentando = true;
     try { await Lock.verificar(); await entrarNoApp(); }
-    catch (_) { if (!auto) $('#bloq-erro').textContent = 'Não foi possível confirmar. Toque para tentar de novo.'; }
+    catch (_) { $('#bloq-erro').textContent = 'Não foi possível confirmar. Toque para tentar de novo.'; }
+    finally { tentando = false; }
   };
-  $('#btn-desbloquear').addEventListener('click', () => tentar());
-  $('#btn-senha').addEventListener('click', async () => { await Api.sair(); Lock.desativar(); telaLogin(); });
-  tentar(true);
+  $('#porta').onclick = e => { if (!e.target.closest('#btn-senha')) tentar(); };
+  $('#btn-senha').addEventListener('click', async () => { $('#porta').onclick = null; await Api.sair(); Lock.desativar(); telaLogin(); });
 }
 
 /* ===================== Dados ===================== */
