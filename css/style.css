@@ -898,14 +898,14 @@ input, select, textarea, .campo { font-size: 16px !important; }
 
 /* ---------- V2.16: saldo anima ao lançar, editar ou excluir (no lugar do aviso) ---------- */
 .topo-saldo { position: relative; }
-.topo-saldo b { transition: color .3s, text-shadow .3s; }
+.topo-saldo b { transition: color .5s, text-shadow .5s; }
 .topo-saldo.sobe b { color: var(--ent); text-shadow: 0 0 18px rgba(143, 191, 127, .45); }
 .topo-saldo.desce b { color: var(--sai); text-shadow: 0 0 18px rgba(217, 139, 110, .45); }
 .topo-saldo.igual b { color: var(--ouro-claro); }
 .saldo-dif {
   position: absolute; left: 100%; bottom: 4px; margin-left: 10px; white-space: nowrap;
   font-size: .85rem; font-weight: 600; font-variant-numeric: tabular-nums; pointer-events: none;
-  animation: saldo-dif 1.5s cubic-bezier(.2, .8, .2, 1) forwards;
+  animation: saldo-dif 2.8s cubic-bezier(.2, .8, .2, 1) forwards;
 }
 .saldo-dif.sobe { color: var(--ent); }
 .saldo-dif.desce { color: var(--sai); }
@@ -923,3 +923,8 @@ input, select, textarea, .campo { font-size: 16px !important; }
 .periodo-datas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .periodo-datas label { display: flex; flex-direction: column; gap: 6px; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--txt-4); }
 .periodo-datas .campo { background: var(--bg); border-radius: 14px; min-height: 46px; color: var(--txt); text-transform: none; letter-spacing: 0; }
+
+/* ---------- V2.18: campo obrigatório que falta ---------- */
+.falta { border-color: var(--sai) !important; box-shadow: 0 0 0 3px rgba(217, 139, 110, .18); animation: treme .35s; }
+.valor-vis.falta { border: 0; box-shadow: none; color: var(--sai) !important; }
+@keyframes treme { 20%, 60% { transform: translateX(-5px); } 40%, 80% { transform: translateX(5px); } }

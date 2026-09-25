@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.17.0';
+const VERSAO = '2.18.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -793,8 +793,10 @@ async function criarCategoriaForm() {
 
 async function salvarForm() {
   const f = S.form;
-  if (!f.centavos) { toast('Digite o valor.', true); return; }
-  if (!f.categoria_id) { toast('Escolha uma categoria.', true); abrirPainelCat(true); return; }
+  // Valor, categoria e descrição são obrigatórios; o resto é opcional
+  if (!f.centavos) { marcarFalta('#f-valor'); toast('Digite o valor.', true); return; }
+  if (!f.categoria_id) { marcarFalta('.lancar .seletor-cat'); toast('Escolha uma categoria.', true); abrirPainelCat(true); return; }
+  if (!f.descricao.trim()) { marcarFalta('#f-desc'); toast('Escreva a descrição.', true); $('#f-desc')?.focus(); return; }
   const dados = {
     tipo: f.tipo, valor: f.centavos / 100, categoria_id: f.categoria_id, data: f.data,
     descricao: f.descricao.trim() || null, forma_pagamento: f.forma_pagamento || null, usuario_id: f.usuario_id
@@ -826,6 +828,13 @@ async function salvarForm() {
 }
 
 // Depois de salvar/excluir/cancelar: novo formulário em branco; edição volta para a tela de origem
+// Destaca (borda laranja e tremidinha) o campo que falta preencher
+function marcarFalta(sel) {
+  const el = $(sel); if (!el) return;
+  el.classList.remove('falta'); void el.offsetWidth; el.classList.add('falta');
+  setTimeout(() => el.classList.remove('falta'), 2200);
+}
+
 // Depois de salvar/excluir: fica no Início e o saldo anima do valor antigo ao novo
 // (no lugar do aviso). Cancelar uma edição volta para a tela de onde veio.
 function terminarForm(tipo, saldos = null) {
@@ -842,7 +851,7 @@ function animarSaldo(de, para) {
   const dif = Math.round((para - de) * 100) / 100;
   const classe = dif > 0 ? 'sobe' : dif < 0 ? 'desce' : 'igual';
   // o valor conta do antigo ao novo
-  const t0 = performance.now(), dur = 700;
+  const t0 = performance.now(), dur = 1600;
   const passo = t => {
     const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
     el.textContent = fmt(de + (para - de) * e);
@@ -858,9 +867,9 @@ function animarSaldo(de, para) {
     d.className = `saldo-dif ${classe}`;
     d.textContent = `${dif > 0 ? '+' : '−'} ${fmt(Math.abs(dif))}`;
     box.appendChild(d);
-    setTimeout(() => d.remove(), 1600);
+    setTimeout(() => d.remove(), 2900);
   }
-  setTimeout(() => box.classList.remove(classe), 1400);
+  setTimeout(() => box.classList.remove(classe), 2600);
 }
 
 async function excluirForm() {
