@@ -895,3 +895,23 @@ input, select, textarea, .campo { font-size: 16px !important; }
 .linha-tempo .item.hist { padding: 11px 4px; border-bottom: 1px solid var(--borda); }
 .linha-tempo .item.hist:has(+ .dia-t), .linha-tempo .item.hist:last-child { border-bottom: 0; }
 .linha-tempo .hoje-vazio { padding: 6px 4px 12px; }
+
+/* ---------- V2.16: saldo anima ao lançar, editar ou excluir (no lugar do aviso) ---------- */
+.topo-saldo { position: relative; }
+.topo-saldo b { transition: color .3s, text-shadow .3s; }
+.topo-saldo.sobe b { color: var(--ent); text-shadow: 0 0 18px rgba(143, 191, 127, .45); }
+.topo-saldo.desce b { color: var(--sai); text-shadow: 0 0 18px rgba(217, 139, 110, .45); }
+.topo-saldo.igual b { color: var(--ouro-claro); }
+.saldo-dif {
+  position: absolute; left: 100%; bottom: 4px; margin-left: 10px; white-space: nowrap;
+  font-size: .85rem; font-weight: 600; font-variant-numeric: tabular-nums; pointer-events: none;
+  animation: saldo-dif 1.5s cubic-bezier(.2, .8, .2, 1) forwards;
+}
+.saldo-dif.sobe { color: var(--ent); }
+.saldo-dif.desce { color: var(--sai); }
+@keyframes saldo-dif {
+  0% { opacity: 0; transform: translateY(8px); }
+  18% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-14px); }
+}

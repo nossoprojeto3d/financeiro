@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.15.0';
+const VERSAO = '2.16.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -800,12 +800,12 @@ async function salvarForm() {
     descricao: f.descricao.trim() || null, forma_pagamento: f.forma_pagamento || null, usuario_id: f.usuario_id
   };
   const btn = $('#f-salvar'); btn.disabled = true; btn.textContent = 'Salvando…';
+  const antes = saldoCaixa();
   try {
     if (f.id) {
       const r = await Api.editarLancamento(f.id, dados);
       const i = S.lancs.findIndex(l => l.id === f.id);
       S.lancs[i] = { ...r, valor: Number(r.valor) };
-      toast('Alterações salvas');
     } else if (f.repetir) {
       // Cria a regra e deixa o banco lançar este mês (e os anteriores, se a data for antiga)
       const { data, ...resto } = dados;
@@ -813,14 +813,12 @@ async function salvarForm() {
       S.recorrentes.push({ ...rec, valor: Number(rec.valor) });
       await gerarRecorrentes(true);
       S.lancs = (await Api.lancamentos()).map(x => ({ ...x, valor: Number(x.valor) }));
-      toast(`${fmt(dados.valor)} todo dia ${deISO(data).getDate()}: criado`);
     } else {
       const r = await Api.criarLancamento(dados);
       S.lancs.push({ ...r, valor: Number(r.valor) });
-      toast(`${f.tipo === 'entrada' ? 'Entrada' : 'Saída'} de ${fmt(dados.valor)} lançada`);
     }
     S.lancs.sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : b.id - a.id));
-    terminarForm(f.tipo);
+    terminarForm(f.tipo, [antes, saldoCaixa()]);
   } catch (e) {
     btn.disabled = false; btn.textContent = 'Tentar de novo';
     tratarErro(e);
@@ -828,19 +826,51 @@ async function salvarForm() {
 }
 
 // Depois de salvar/excluir/cancelar: novo formulário em branco; edição volta para a tela de origem
-function terminarForm(tipo) {
+// Depois de salvar/excluir: fica no Início e o saldo anima do valor antigo ao novo
+// (no lugar do aviso). Cancelar uma edição volta para a tela de onde veio.
+function terminarForm(tipo, saldos = null) {
   const volta = S.formVolta;
   S.form = novoForm(tipo); S.formVolta = null;
-  if (volta && volta !== 'inicio') irPara(volta); else render();
+  if (saldos) { if (S.tela !== 'inicio') irPara('inicio'); else render(); animarSaldo(...saldos); }
+  else if (volta && volta !== 'inicio') irPara(volta); else render();
+}
+
+const saldoCaixa = () => soma(S.lancs.filter(l => l.tipo === 'entrada')) - soma(S.lancs.filter(l => l.tipo === 'saida'));
+
+function animarSaldo(de, para) {
+  const el = $('.topo-saldo b'); if (!el) return;
+  const dif = Math.round((para - de) * 100) / 100;
+  const classe = dif > 0 ? 'sobe' : dif < 0 ? 'desce' : 'igual';
+  // o valor conta do antigo ao novo
+  const t0 = performance.now(), dur = 700;
+  const passo = t => {
+    const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = fmt(de + (para - de) * e);
+    if (k < 1) requestAnimationFrame(passo);
+    else { el.textContent = fmt(para); el.classList.toggle('neg', para < 0); }
+  };
+  requestAnimationFrame(passo);
+  // pisca na cor e mostra a diferença subindo
+  const box = el.parentElement;
+  box.classList.remove('sobe', 'desce', 'igual'); void box.offsetWidth; box.classList.add(classe);
+  if (dif) {
+    const d = document.createElement('span');
+    d.className = `saldo-dif ${classe}`;
+    d.textContent = `${dif > 0 ? '+' : '−'} ${fmt(Math.abs(dif))}`;
+    box.appendChild(d);
+    setTimeout(() => d.remove(), 1600);
+  }
+  setTimeout(() => box.classList.remove(classe), 1400);
 }
 
 async function excluirForm() {
   const f = S.form;
   if (!await confirmar(`Excluir este lançamento de ${fmt(f.centavos / 100)}? Não dá pra desfazer.`)) return;
   try {
+    const antes = saldoCaixa();
     await Api.excluirLancamento(f.id);
     S.lancs = S.lancs.filter(l => l.id !== f.id);
-    terminarForm(f.tipo); toast('Lançamento excluído');
+    terminarForm(f.tipo, [antes, saldoCaixa()]);
   } catch (e) { tratarErro(e); }
 }
 
