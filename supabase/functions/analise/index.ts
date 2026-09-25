@@ -20,7 +20,8 @@ const LIMITE_BYTES = 20000; // os totais de um período cabem folgados nisso
 // Confere se quem chama é um dos usuários do app (tem perfil no banco).
 // Sem isso, qualquer um com a chave pública gastaria a cota grátis do Gemini.
 async function ehMembro(req: Request): Promise<boolean> {
-  const url = Deno.env.get('SUPABASE_URL'), anon = Deno.env.get('SUPABASE_ANON_KEY');
+  // Usa a chave pública que o próprio app enviou (projetos novos usam a chave "publishable")
+  const url = Deno.env.get('SUPABASE_URL'), anon = req.headers.get('apikey') || Deno.env.get('SUPABASE_ANON_KEY');
   const auth = req.headers.get('Authorization') || '';
   if (!url || !anon || !auth.startsWith('Bearer ')) return false;
   const h = { apikey: anon, Authorization: auth };
