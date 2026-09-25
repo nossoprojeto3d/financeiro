@@ -1,5 +1,5 @@
 // Financeiro NP3D (Nosso Projeto 3D)
-const VERSAO = '3.0.0';
+const VERSAO = '3.0.1';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -1635,6 +1635,7 @@ function iaSalva(chave) {
 function guardarIA(chave, valor) {
   try {
     const m = JSON.parse(localStorage.getItem('caixa_ia') || '{}');
+    for (const k in m) if (iso(new Date(m[k].em)) !== hoje()) delete m[k]; // apaga as de outros dias
     m[chave] = valor;
     const chaves = Object.keys(m);
     if (chaves.length > 8) chaves.slice(0, chaves.length - 8).forEach(k => delete m[k]);
@@ -1688,6 +1689,8 @@ function blocoIA(iv) {
   const chave = chaveIA(iv);
   let st = S.ia && S.ia.chave === chave ? S.ia : null;
   if (!st) { const salvo = iaSalva(chave); if (salvo) st = { chave, estado: 'ok', ...salvo }; }
+  // A análise vale só até as 23:59 do dia em que foi pedida, em qualquer período
+  if (st?.estado === 'ok' && iso(new Date(st.em)) !== hoje()) st = null;
   const lista = (itens, cls) => (itens || []).filter(Boolean).map(t => `<li class="${cls}">${esc(t)}</li>`).join('');
 
   if (st?.estado === 'carregando') return `<div class="ia-card"><div class="ia-carregando"><div class="giro"></div><span>Analisando os números do período…</span></div></div>`;
