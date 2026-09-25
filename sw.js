@@ -1,6 +1,6 @@
 // Service worker: app funciona instalado e abre mesmo sem internet.
 // Ao publicar uma versão nova, mude o número abaixo.
-const CACHE = 'caixa-v2.19.3';
+const CACHE = 'caixa-v2.19.4';
 const ARQUIVOS = [
   './', './index.html', './css/style.css', './manifest.json',
   './js/config.js', './js/api.js', './js/lock.js', './js/charts.js', './js/app.js',
