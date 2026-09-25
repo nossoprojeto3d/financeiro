@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.11.3';
+const VERSAO = '2.11.4';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -1740,7 +1740,14 @@ document.addEventListener('visibilitychange', () => {
 /* ===================== Início do app ===================== */
 function iniciar() {
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {});
+    // Versão nova assumiu: recarrega uma vez para já abrir nela (se não houver formulário aberto)
+    const tinhaControle = !!navigator.serviceWorker.controller;
+    let recarregou = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!tinhaControle || recarregou || S.form || !$('#sheet').hidden) return;
+      recarregou = true; location.reload();
+    });
   }
   if (!Api.configurado()) return telaConfigFaltando();
   if (!Api.sessao()) return telaLogin();
