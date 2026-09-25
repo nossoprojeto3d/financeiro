@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.12.1';
+const VERSAO = '2.12.2';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -358,6 +358,7 @@ async function entrarNoApp(acabouDeLogar = false) {
   catch (e) { return tratarErro(e); }
   $('#porta').hidden = true;
   $('#shell').hidden = false;
+  marcarUso();
   render();
   iniciarSync();
   if (acabouDeLogar && !Lock.ativo() && await Lock.disponivel()) oferecerFaceId();
@@ -1348,7 +1349,7 @@ function telaAjustes() {
       <div class="secao-topo"><h2>Segurança</h2></div>
       <div class="bloco" style="padding-top:4px;padding-bottom:4px">
         ${Lock.celular() ? `<button class="opcao" data-acao="${Lock.ativo() ? 'faceid-off' : 'faceid-on'}">
-          <span>Face ID ao abrir<small>Pede o Face ID sempre que o app abre ou volta depois de 1 minuto</small></span>
+          <span>Face ID ao abrir<small>Pede o Face ID depois de 15 minutos sem usar o app</small></span>
           <span class="dir ${Lock.ativo() ? 'on' : ''}">${Lock.ativo() ? 'Ativado' : 'Ativar'}</span>
         </button>` : ''}
         <button class="opcao" data-acao="sair"><span>Sair da conta<small>Pede a senha na próxima vez</small></span><span class="dir">Sair</span></button>
@@ -1738,13 +1739,23 @@ document.addEventListener('input', e => {
 $('#sheet-fundo').addEventListener('click', fecharSheet);
 document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#sheet').hidden) fecharSheet(); });
 
-// Trava ao voltar depois de 1 min em segundo plano; recarrega dados após 2 min
-let saiuEm = 0;
+// Trava com Face ID depois de 15 min sem usar o app (vale também se o iPhone fechou o app)
+const TEMPO_TRAVA = 15 * 60e3;
+function marcarUso() {
+  // só conta uso com o app destravado (a tela de desbloqueio não renova o tempo)
+  if (!$('#shell').hidden) try { localStorage.setItem('caixa_ultimo_uso', String(Date.now())); } catch (_) {}
+}
+function precisaTravar() {
+  if (!Lock.ativo()) return false;
+  const ultimo = Number(localStorage.getItem('caixa_ultimo_uso') || 0);
+  return Date.now() - ultimo > TEMPO_TRAVA;
+}
+setInterval(() => { if (!document.hidden) marcarUso(); }, 30e3);
+addEventListener('pagehide', marcarUso);
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { saiuEm = Date.now(); return; }
-  if ($('#shell').hidden || !saiuEm) return;
-  const fora = Date.now() - saiuEm;
-  if (Lock.ativo() && fora > 60e3) { fecharSheet(); return telaBloqueio(); }
+  if (document.hidden) return marcarUso();
+  if ($('#shell').hidden) return;
+  if (precisaTravar()) { fecharSheet(); return telaBloqueio(); }
   sincronizar(); // voltou para o app: confere na hora se tem novidade
 });
 
@@ -1762,7 +1773,7 @@ function iniciar() {
   }
   if (!Api.configurado()) return telaConfigFaltando();
   if (!Api.sessao()) return telaLogin();
-  if (Lock.ativo()) return telaBloqueio();
+  if (precisaTravar()) return telaBloqueio();
   entrarNoApp();
 }
 iniciar();
