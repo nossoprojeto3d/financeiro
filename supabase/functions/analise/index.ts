@@ -74,19 +74,28 @@ Deno.serve(async req => {
     const { dados } = JSON.parse(bruto || '{}');
     if (!dados || typeof dados !== 'object') return json({ erro: 'Sem dados para analisar.' }, 400);
 
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: INSTRUCOES }] },
-        contents: [{ role: 'user', parts: [{ text: 'Dados da empresa:\n' + JSON.stringify(dados) }] }],
-        generationConfig: { temperature: 0.4, responseMimeType: 'application/json' }
-      })
+    // Se o modelo estiver sobrecarregado (503) ou no limite (429), tenta outros modelos grátis
+    const modelos = [...new Set([modelo, 'gemini-flash-lite-latest', 'gemini-2.5-flash'])];
+    const corpo = JSON.stringify({
+      systemInstruction: { parts: [{ text: INSTRUCOES }] },
+      contents: [{ role: 'user', parts: [{ text: 'Dados da empresa:\n' + JSON.stringify(dados) }] }],
+      generationConfig: { temperature: 0.4, responseMimeType: 'application/json' }
     });
-    const j = await r.json();
-    if (!r.ok) {
-      console.error('Gemini', r.status, j?.error?.message);
-      return json({ erro: r.status === 429 ? 'Limite grátis do Gemini atingido. Tente de novo mais tarde.' : 'A IA não respondeu agora. Tente de novo.' }, 502);
+    let r: Response | null = null, j: any = null;
+    for (const m of modelos) {
+      r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${m}:generateContent`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': chave }, body: corpo
+      });
+      j = await r.json().catch(() => ({}));
+      if (r.ok) break;
+      console.error('Gemini', m, r.status, j?.error?.message);
+      if (r.status !== 503 && r.status !== 429 && r.status !== 404) break; // erro que outro modelo não resolve
+    }
+    if (!r || !r.ok) {
+      const st = r?.status;
+      return json({ erro: st === 429 ? 'Limite grátis do Gemini atingido. Tente de novo mais tarde.'
+        : st === 503 ? 'A IA do Google está sobrecarregada agora. Tente de novo em alguns minutos.'
+        : 'A IA não respondeu agora. Tente de novo.' }, 502);
     }
     const texto = (j.candidates?.[0]?.content?.parts || []).map((p: { text?: string }) => p.text || '').join('');
     const limpo = texto.replace(/```json|```/g, '').trim();
