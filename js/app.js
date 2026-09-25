@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.12.5';
+const VERSAO = '2.13.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -321,6 +321,8 @@ function assinatura(lancs, cats) {
   return `${lancs.length}|${maxId}|${ult}|${cats.map(c => `${c.id}:${c.nome}:${c.natureza}:${c.ordem}`).join(',')}`;
 }
 
+const digitando = () => !!document.activeElement?.matches?.('input, textarea');
+
 function iniciarSync() {
   clearInterval(syncT);
   syncT = setInterval(sincronizar, INTERVALO_SYNC);
@@ -328,7 +330,7 @@ function iniciarSync() {
 
 async function sincronizar() {
   // Não atualiza no meio de um lançamento ou edição, nem com o app em segundo plano
-  if (sincronizando || S.arrastando || document.hidden || $('#shell').hidden || S.form || !$('#sheet').hidden) return;
+  if (sincronizando || S.arrastando || document.hidden || $('#shell').hidden || digitando() || !$('#sheet').hidden) return;
   sincronizando = true;
   try {
     await gerarRecorrentes();
@@ -339,7 +341,7 @@ async function sincronizar() {
     S.offline = false;
     S.carregadoEm = Date.now();
     if (assinatura(novosLancs, c) === assinatura(S.lancs, S.categorias)) return;
-    if (S.form || S.arrastando || !$('#sheet').hidden) return; // abriu um formulário ou está arrastando
+    if (digitando() || S.arrastando || !$('#sheet').hidden) return; // começou a digitar, abriu um painel ou está arrastando
 
     const antes = new Set(S.lancs.map(x => x.id));
     const deOutros = novosLancs.filter(x => !antes.has(x.id) && x.usuario_id !== S.perfil.id);
@@ -381,6 +383,7 @@ async function entrarNoApp(acabouDeLogar = false) {
 
 /* ===================== Navegação ===================== */
 function irPara(tela) {
+  if (tela !== 'inicio' && S.form?.id) { S.form = null; S.formVolta = null; }
   S.tela = tela;
   $$('.nav button').forEach(b => b.classList.toggle('ativo', b.dataset.tela === tela));
   render();
@@ -537,46 +540,48 @@ function linhaSaldo() {
 
 function telaInicio() {
   const agora = new Date();
-  const ini = iso(new Date(agora.getFullYear(), agora.getMonth(), 1));
-  const doMes = S.lancs.filter(l => l.data >= ini && l.data <= hoje());
-  const ent = soma(doMes.filter(l => l.tipo === 'entrada'));
-  const sai = soma(doMes.filter(l => l.tipo === 'saida'));
   const caixa = soma(S.lancs.filter(l => l.tipo === 'entrada')) - soma(S.lancs.filter(l => l.tipo === 'saida'));
-  const ultimos = S.lancs.slice(0, 4);
-  const mes = MESES_LONGO[agora.getMonth()];
+  if (!S.form) S.form = novoForm('entrada');
+  const f = S.form;
+  const c = cat(f.categoria_id);
+  const teclas = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', 'apagar'];
 
   return `
     <div class="topo-home">
       <div>
         <span class="topo-data">${esc(DIAS_SEMANA[agora.getDay()])}, ${agora.getDate()} de ${esc(MESES_LONGO[agora.getMonth()])}</span>
-        <h1 class="topo-ola">${agora.getHours() < 5 ? 'Boa noite' : agora.getHours() < 12 ? 'Bom dia' : agora.getHours() < 18 ? 'Boa tarde' : 'Boa noite'}, ${esc(S.perfil.nome)}</h1>
+        <div class="topo-saldo"><small>Em caixa${S.offline ? ' (offline)' : ''}</small><b class="${caixa < 0 ? 'neg' : ''}">${esc(fmt(caixa))}</b></div>
       </div>
       <button class="topo-avatar" data-tela-ir="ajustes" aria-label="Ajustes">
         <span class="avatar" style="background:${esc(S.perfil.cor)}">${esc(S.perfil.nome[0])}</span>
       </button>
     </div>
 
-    <div class="caixa-hero">
-      ${linhaSaldo()}
-      <span class="rotulo">Saldo em caixa${S.offline ? ' (offline)' : ''}</span>
-      <strong class="valor ${caixa < 0 ? 'neg' : ''}">${esc(fmt(caixa))}</strong>
-      <span class="mes-resumo">${mes[0].toUpperCase() + mes.slice(1)}<span class="e">+${esc(fmt(ent))}</span><span class="s">−${esc(fmt(sai))}</span></span>
-    </div>
+    <section class="lancar ${f.tipo}">
+      ${f.id
+        ? `<div class="editando"><span>Editando ${f.tipo === 'entrada' ? 'entrada' : 'saída'}</span><button data-acao="f-cancelar">Cancelar</button></div>`
+        : `<div class="tipo-seg">
+            <button class="${f.tipo === 'entrada' ? 'ativo' : ''} e" data-acao="f-tipo" data-v="entrada">${SETA_ENT}Entrada</button>
+            <button class="${f.tipo === 'saida' ? 'ativo' : ''} s" data-acao="f-tipo" data-v="saida">${SETA_SAI}Saída</button>
+          </div>`}
 
-    <div class="acoes">
-      <button class="acao entrada" data-acao="novo" data-tipo="entrada">
-        <span class="acao-icone"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></span>Entrada
-      </button>
-      <button class="acao saida" data-acao="novo" data-tipo="saida">
-        <span class="acao-icone"><svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg></span>Saída
-      </button>
-    </div>
+      <div class="valor-vis ${f.centavos ? '' : 'vazio'}" id="f-valor" aria-live="polite">${esc(fmt(f.centavos / 100))}</div>
 
-    <section class="recentes">
-      <div class="recentes-topo"><span>Recentes</span>${ultimos.length ? '<button data-tela-ir="historico">Ver todos</button>' : ''}</div>
-      ${ultimos.length
-        ? `<div class="lista bloco-lista">${ultimos.map(itemCompacto).join('')}</div>`
-        : `<p class="vazio-simples">Nenhum lançamento ainda. Se já existe dinheiro em conta, comece com uma entrada em “Saldo inicial / ajuste”.</p>`}
+      <div id="f-cats">${seletorCatHTML(c)}</div>
+      <input id="f-desc" class="campo" maxlength="120" value="${esc(f.descricao)}" enterkeyhint="done"
+        placeholder="${f.tipo === 'entrada' ? 'Descrição · ex.: pedido Shopee #1234' : 'Descrição · ex.: 3 rolos PLA preto'}">
+      <button class="linha-mais" data-acao="f-detalhes">
+        <span>Mais detalhes</span><small id="f-resumo">${esc(resumoDetalhes(f))}</small>
+        <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+
+      <div class="teclado-num">
+        ${teclas.map(t => `<button data-acao="f-tecla" data-v="${t}" ${t === 'apagar' ? 'aria-label="Apagar"' : ''}>${t === 'apagar'
+          ? '<svg viewBox="0 0 24 24"><path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7z"/><path d="M12.5 9.5l5 5M17.5 9.5l-5 5"/></svg>' : t}</button>`).join('')}
+      </div>
+
+      <button class="btn ${f.tipo}" data-acao="salvar" id="f-salvar">${textoSalvar(f)}</button>
+      ${f.id ? '<button class="btn link excluir-lanc" data-acao="excluir">Excluir lançamento</button>' : ''}
     </section>`;
 }
 
@@ -597,7 +602,7 @@ function fecharSheet() {
   const sh = $('#sheet'), fundo = $('#sheet-fundo');
   sh.classList.remove('aberto', 'modo-cat'); fundo.classList.remove('aberto');
   sheetT = setTimeout(() => { sh.hidden = true; fundo.hidden = true; sh.innerHTML = ''; }, 260);
-  S.form = null;
+  atualizarFormInicio();
 }
 
 // Ordem manual (coluna "ordem", do v2-ordem.sql). Sem ela no banco, as mais usadas primeiro.
@@ -614,35 +619,55 @@ function categoriasOrdenadas(tipo) {
   return lista.sort((a, b) => (uso[b.id] || 0) - (uso[a.id] || 0) || a.nome.localeCompare(b.nome));
 }
 
+function novoForm(tipo, opcoes = {}) {
+  return { id: null, tipo, centavos: 0, categoria_id: null, data: hoje(), descricao: '',
+    forma_pagamento: '', usuario_id: S.perfil.id, novaCat: null, repetir: !!opcoes.repetir };
+}
+
+// Novo lançamento ou edição: tudo acontece no Início (teclado numérico próprio, sem o do iPhone)
 function abrirForm(tipo, lanc = null, opcoes = {}) {
   S.form = lanc
     ? { id: lanc.id, tipo: lanc.tipo, centavos: Math.round(lanc.valor * 100), categoria_id: lanc.categoria_id,
         data: lanc.data, descricao: lanc.descricao || '', forma_pagamento: lanc.forma_pagamento || '',
         usuario_id: lanc.usuario_id, novaCat: null, recorrente_id: lanc.recorrente_id || null }
-    : { id: null, tipo, centavos: 0, categoria_id: null, data: hoje(), descricao: '',
-        forma_pagamento: '', usuario_id: S.perfil.id, novaCat: null, repetir: !!opcoes.repetir };
+    : novoForm(tipo, opcoes);
+  S.formVolta = lanc ? S.tela : null;
+  irPara('inicio');
+}
+
+function textoSalvar(f) {
+  return f.id ? 'Salvar alterações' : f.repetir ? 'Criar lançamento mensal' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída';
+}
+
+function resumoDetalhes(f) {
+  const quem = perfil(f.usuario_id);
+  return [f.repetir ? `Todo dia ${deISO(f.data).getDate()}` : dataBonita(f.data), f.forma_pagamento,
+    quem && quem.id !== S.perfil.id ? quem.nome : null].filter(Boolean).join(' · ');
+}
+
+function seletorCatHTML(c) {
+  return `
+    <button class="seletor-cat ${c ? '' : 'vazio'}" data-acao="f-cat-abrir">
+      ${c ? `<span class="ponto" style="background:${corCategoria(c.id)}"></span>` : ''}
+      <span class="meio"><b>${esc(c ? c.nome : 'Escolher categoria')}</b>${c ? `<small>${esc(nomeNatureza(c.natureza))}</small>` : ''}</span>
+      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+    </button>`;
+}
+
+function teclaValor(v) {
+  const f = S.form; if (!f) return;
+  if (v === 'apagar') f.centavos = Math.floor(f.centavos / 10);
+  else if (String(f.centavos).length + v.length <= 11) f.centavos = Number(String(f.centavos) + v);
+  const el = $('#f-valor');
+  el.textContent = fmt(f.centavos / 100);
+  el.classList.toggle('vazio', !f.centavos);
+}
+
+// Data, repetir, pagamento e quem fez: popup no centro (sem teclado)
+function abrirDetalhes() {
   const f = S.form;
-  const titulo = f.id ? 'Editar lançamento' : f.tipo === 'entrada' ? 'Nova entrada' : 'Nova saída';
-
   abrirSheet(`
-    <div class="form-corpo">
-    <div class="sheet-topo">
-      <div><span class="tipo-tag ${f.tipo}">${f.tipo === 'entrada' ? 'Entrada' : 'Saída'}</span><h2>${titulo}</h2></div>
-      <button class="fechar" data-acao="fechar" aria-label="Fechar">×</button>
-    </div>
-    <input id="f-valor" class="valor-input ${f.tipo}" inputmode="numeric" placeholder="R$ 0,00"
-      value="${f.centavos ? esc(fmt(f.centavos / 100)) : ''}" aria-label="Valor">
-
-    <div class="grupo"><span class="rot">Categoria</span><div id="f-cats"></div></div>
-
-    <div class="grupo">
-      <label for="f-desc">Descrição</label>
-      <input id="f-desc" class="campo" maxlength="120" value="${esc(f.descricao)}"
-        placeholder="${f.tipo === 'entrada' ? 'Ex.: pedido Shopee #1234' : 'Ex.: 3 rolos PLA preto'}">
-    </div>
-
-    <details class="mais" ${f.repetir || f.data !== hoje() || (f.id && (f.forma_pagamento || f.usuario_id !== S.perfil.id)) ? 'open' : ''}>
-    <summary>Mais detalhes</summary>
+    <div class="sheet-topo"><h2>Mais detalhes</h2><button class="fechar" data-acao="fechar" aria-label="Fechar">×</button></div>
     <div class="grupo">
       <span class="rot">Data</span>
       <div class="linha-data">
@@ -651,78 +676,48 @@ function abrirForm(tipo, lanc = null, opcoes = {}) {
         <input id="f-data" type="date" class="campo ${f.data !== hoje() && f.data !== ontem() ? 'on' : ''}" value="${f.data}" max="${hoje()}" aria-label="Outra data">
       </div>
     </div>
-
     ${f.id ? '' : `<div class="grupo">
       <button class="linha-toggle" data-acao="f-repetir" aria-pressed="${f.repetir}">
         <span>Repetir todo mês<small id="f-rep-txt">${esc(textoRepetir(f))}</small></span>
         <span class="toggle ${f.repetir ? 'on' : ''}"></span>
       </button>
     </div>`}
-
     <div class="grupo">
       <span class="rot">Forma de pagamento</span>
       <div class="chips" data-grupo="pag">
         ${PAGAMENTOS.map(p => `<button class="chip ${f.forma_pagamento === p ? 'ativo' : ''}" data-acao="f-pag" data-v="${esc(p)}">${esc(p)}</button>`).join('')}
       </div>
     </div>
-
     <div class="grupo">
       <span class="rot">Quem fez</span>
       <div class="chips" data-grupo="user">
         ${S.perfis.map(p => `<button class="chip ${f.usuario_id === p.id ? 'ativo' : ''}" data-acao="f-user" data-id="${p.id}">${esc(p.nome)}</button>`).join('')}
       </div>
     </div>
-    </details>
-
-    ${f.id ? (f.recorrente_id && S.recorrentes.some(r => r.id === f.recorrente_id)
-      ? `<p class="nota-rec">Esse lançamento se repete todo mês. Para mudar o valor dos próximos ou pausar, vá em Ajustes › Lançamentos que se repetem.</p>` : '')
-    : ''}
-
-    <div class="acoes-form">
-      <button class="btn ${f.tipo}" data-acao="salvar" id="f-salvar">${f.id ? 'Salvar alterações' : f.repetir ? 'Criar lançamento mensal' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}</button>
-      ${f.id ? '<button class="btn perigo" data-acao="excluir">Excluir lançamento</button>' : ''}
-    </div>
-    </div>
-    <div id="f-cat-painel" class="painel-cat"></div>`, { deBaixo: true });
-
-  renderCatsForm();
-  // Ao abrir "Mais detalhes", rola até os campos (senão ficam escondidos embaixo)
-  $('.mais').addEventListener('toggle', e => {
-    if (!e.target.open) return;
-    const sh = $('#sheet'), alvo = e.target;
-    setTimeout(() => sh.scrollTo({ top: alvo.offsetTop - 16, behavior: 'smooth' }), 30);
-  });
-  const inp = $('#f-valor');
-  inp.addEventListener('input', () => {
-    const dig = inp.value.replace(/\D/g, '').slice(0, 11);
-    f.centavos = parseInt(dig || '0', 10);
-    inp.value = f.centavos ? fmt(f.centavos / 100) : '';
-  });
-  $('#f-desc').addEventListener('input', e => { f.descricao = e.target.value; });
+    ${f.id && f.recorrente_id && S.recorrentes.some(r => r.id === f.recorrente_id)
+      ? `<p class="nota-rec">Esse lançamento se repete todo mês. Para mudar o valor dos próximos ou pausar, vá em Ajustes › Lançamentos que se repetem.</p>` : ''}
+    <div class="acoes-form"><button class="btn" data-acao="fechar">Pronto</button></div>`);
   $('#f-data').addEventListener('change', e => {
     f.data = e.target.value || hoje();
     if ($('#f-rep-txt')) $('#f-rep-txt').textContent = textoRepetir(f);
     $$('[data-acao="f-data"]').forEach(b => b.classList.toggle('ativo', b.dataset.v === f.data));
     e.target.classList.toggle('on', f.data !== hoje() && f.data !== ontem());
   });
-  if (!f.id) setTimeout(() => inp.focus(), 280);
+}
+
+// Ao fechar um painel, o Início mostra o que mudou no formulário
+function atualizarFormInicio() {
+  if (S.tela !== 'inicio' || !S.form) return;
+  if ($('#f-resumo')) $('#f-resumo').textContent = resumoDetalhes(S.form);
+  if ($('#f-cats')) $('#f-cats').innerHTML = seletorCatHTML(cat(S.form.categoria_id));
+  if ($('#f-salvar')) $('#f-salvar').textContent = textoSalvar(S.form);
 }
 
 function textoRepetir(f) {
   return f.repetir ? `Lança sozinho todo dia ${deISO(f.data).getDate()}` : 'Para assinaturas e contas do mês';
 }
 
-function renderCatsForm() {
-  const f = S.form; if (!f) return;
-  const c = cat(f.categoria_id);
-  $('#f-cats').innerHTML = `
-    <button class="seletor-cat ${c ? '' : 'vazio'}" data-acao="f-cat-abrir">
-      ${c ? `<span class="ponto" style="background:${corCategoria(c.id)}"></span>` : ''}
-      <span class="meio"><b>${esc(c ? c.nome : 'Escolher categoria')}</b>${c ? `<small>${esc(nomeNatureza(c.natureza))}</small>` : ''}</span>
-      <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
-    </button>`;
-  renderPainelCats();
-}
+function renderCatsForm() { atualizarFormInicio(); renderPainelCats(); }
 
 // Lista de categorias que ocupa o painel no lugar do formulário
 function renderPainelCats() {
@@ -767,10 +762,10 @@ function renderPainelCats() {
 }
 
 function abrirPainelCat(abrir) {
-  const sh = $('#sheet');
-  sh.classList.toggle('modo-cat', abrir);
-  sh.scrollTop = 0;
-  if (!abrir && S.form) { S.form.novaCat = null; renderCatsForm(); }
+  if (!S.form) return;
+  S.form.novaCat = null;
+  if (abrir) { abrirSheet('<div id="f-cat-painel"></div>', { deBaixo: true }); renderPainelCats(); }
+  else fecharSheet();
 }
 
 async function criarCategoriaForm() {
@@ -792,7 +787,7 @@ async function criarCategoriaForm() {
 
 async function salvarForm() {
   const f = S.form;
-  if (!f.centavos) { toast('Digite o valor.', true); $('#f-valor').focus(); return; }
+  if (!f.centavos) { toast('Digite o valor.', true); return; }
   if (!f.categoria_id) { toast('Escolha uma categoria.', true); abrirPainelCat(true); return; }
   const dados = {
     tipo: f.tipo, valor: f.centavos / 100, categoria_id: f.categoria_id, data: f.data,
@@ -819,11 +814,18 @@ async function salvarForm() {
       toast(`${f.tipo === 'entrada' ? 'Entrada' : 'Saída'} de ${fmt(dados.valor)} lançada`);
     }
     S.lancs.sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : b.id - a.id));
-    fecharSheet(); render();
+    terminarForm(f.tipo);
   } catch (e) {
     btn.disabled = false; btn.textContent = 'Tentar de novo';
     tratarErro(e);
   }
+}
+
+// Depois de salvar/excluir/cancelar: novo formulário em branco; edição volta para a tela de origem
+function terminarForm(tipo) {
+  const volta = S.formVolta;
+  S.form = novoForm(tipo); S.formVolta = null;
+  if (volta && volta !== 'inicio') irPara(volta); else render();
 }
 
 async function excluirForm() {
@@ -832,7 +834,7 @@ async function excluirForm() {
   try {
     await Api.excluirLancamento(f.id);
     S.lancs = S.lancs.filter(l => l.id !== f.id);
-    fecharSheet(); render(); toast('Lançamento excluído');
+    terminarForm(f.tipo); toast('Lançamento excluído');
   } catch (e) { tratarErro(e); }
 }
 
@@ -1704,6 +1706,13 @@ document.addEventListener('click', e => {
       else { f.forma_pagamento = el.dataset.v; marcar(); }
       return;
     case 'f-user': f.usuario_id = el.dataset.id; return marcar();
+    case 'f-tecla': return teclaValor(el.dataset.v);
+    case 'f-detalhes': return abrirDetalhes();
+    case 'f-tipo':
+      if (f.tipo === el.dataset.v) return;
+      f.tipo = el.dataset.v; f.categoria_id = null;
+      return render();
+    case 'f-cancelar': return terminarForm(f.tipo);
     case 'salvar': return salvarForm();
     case 'excluir': return excluirForm();
     case 'h-tipo': S.hist.tipo = el.dataset.v; S.hist.limite = 60; return render();
@@ -1714,11 +1723,11 @@ document.addEventListener('click', e => {
       el.setAttribute('aria-pressed', f.repetir);
       el.querySelector('.toggle').classList.toggle('on', f.repetir);
       $('#f-rep-txt').textContent = textoRepetir(f);
-      $('#f-salvar').textContent = f.repetir ? 'Criar lançamento mensal' : (f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída');
+      $('#f-salvar').textContent = textoSalvar(f);
       return;
     case 'rec-lista': return abrirRecorrentes();
     case 'rec-editar': return abrirRecorrente(S.recorrentes.find(r => r.id === Number(el.dataset.id)));
-    case 'rec-novo': fecharSheet(); return setTimeout(() => abrirForm('saida', null, { repetir: true }), 280);
+    case 'rec-novo': fecharSheet(); return setTimeout(() => { abrirForm('saida', null, { repetir: true }); toast('Preencha o lançamento mensal'); }, 280);
     case 'ia-analisar': return pedirAnaliseIA();
     case 'g-periodo': S.filtros.periodo = el.dataset.v; return render();
     case 'faceid-on': return ativarFaceId();
@@ -1743,6 +1752,7 @@ document.addEventListener('change', e => {
 
 let buscaT;
 document.addEventListener('input', e => {
+  if (e.target.id === 'f-desc' && S.form) { S.form.descricao = e.target.value; return; }
   if (e.target.id !== 'h-busca') return;
   clearTimeout(buscaT);
   buscaT = setTimeout(() => {
@@ -1782,7 +1792,7 @@ function iniciar() {
     const tinhaControle = !!navigator.serviceWorker.controller;
     let recarregou = false;
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (!tinhaControle || recarregou || S.form || !$('#sheet').hidden) return;
+      if (!tinhaControle || recarregou || S.form?.centavos || S.form?.id || digitando() || !$('#sheet').hidden) return;
       recarregou = true; location.reload();
     });
   }

@@ -782,3 +782,54 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
    sobra espaço no fim para a barra de setas do iPhone não esconder nada */
 /* O botão continua fixo, mas sobe acima da barra de setas (↑ ↓ ✓) que o iPhone põe sobre o teclado */
 .teclado-aberto .sheet:not(.centro) .acoes-form { padding-bottom: 66px; background: linear-gradient(180deg, transparent, var(--card) 14%); }
+
+/* ---------- V2.13: o Início é a tela de lançar (teclado numérico próprio) ---------- */
+.topo-saldo { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+.topo-saldo small { font-size: .78rem; color: var(--txt-3); }
+.topo-saldo b { font: 600 1.45rem/1.2 var(--serif); letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--txt); }
+.topo-saldo b.neg { color: var(--sai); }
+
+.lancar {
+  margin-top: 16px; padding: 14px; border-radius: 28px; border: 1px solid var(--borda-forte);
+  background: linear-gradient(180deg, var(--card-2), var(--card));
+  box-shadow: 0 16px 40px rgba(0, 0, 0, .3);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.lancar.entrada { background: radial-gradient(110% 60% at 50% 0%, rgba(143, 191, 127, .08), transparent 70%), linear-gradient(180deg, var(--card-2), var(--card)); }
+.lancar.saida { background: radial-gradient(110% 60% at 50% 0%, rgba(217, 139, 110, .08), transparent 70%), linear-gradient(180deg, var(--card-2), var(--card)); }
+
+.tipo-seg { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; border-radius: 16px; background: var(--bg); border: 1px solid var(--borda); }
+.tipo-seg button {
+  display: flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 6px; border-radius: 12px;
+  color: var(--txt-4); font-weight: 500; border: 1px solid transparent; transition: background .2s, color .2s;
+}
+.tipo-seg svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.tipo-seg .e.ativo { background: rgba(143, 191, 127, .14); border-color: rgba(143, 191, 127, .3); color: var(--ent); }
+.tipo-seg .s.ativo { background: rgba(217, 139, 110, .14); border-color: rgba(217, 139, 110, .3); color: var(--sai); }
+.editando { display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; font-size: .78rem; letter-spacing: .1em; text-transform: uppercase; color: var(--ouro); }
+.editando button { font-size: .85rem; letter-spacing: 0; text-transform: none; color: var(--txt-3); }
+
+.valor-vis {
+  text-align: center; padding: 10px 0 4px; font: 600 2.7rem/1.15 var(--serif); letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden;
+}
+.lancar.entrada .valor-vis { color: var(--ent); }
+.lancar.saida .valor-vis { color: var(--sai); }
+.valor-vis.vazio { color: var(--txt-4) !important; }
+
+.lancar .seletor-cat { padding: 12px 14px; }
+.lancar #f-desc { padding: 13px 14px; border-radius: 16px; background: var(--bg); font-size: .95rem; }
+.linha-mais { display: flex; align-items: center; gap: 8px; width: 100%; padding: 4px 4px 2px; color: var(--txt-3); font-size: .88rem; text-align: left; }
+.linha-mais small { flex: 1; min-width: 0; text-align: right; color: var(--txt-4); font-size: .8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.linha-mais svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.teclado-num { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 2px; }
+.teclado-num button {
+  height: 50px; border-radius: 14px; background: var(--bg); border: 1px solid var(--borda);
+  font: 500 1.35rem var(--sans); color: var(--txt); font-variant-numeric: tabular-nums;
+  display: grid; place-items: center; transition: background .1s, transform .08s;
+}
+.teclado-num button:active { background: var(--borda-forte); transform: scale(.96); }
+.teclado-num svg { width: 24px; height: 24px; fill: none; stroke: var(--txt-3); stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.lancar .btn { margin-top: 2px; }
+.excluir-lanc { color: var(--sai) !important; }
