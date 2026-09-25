@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.16.0';
+const VERSAO = '2.17.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -50,7 +50,7 @@ const nomeNatureza = n => [...NATUREZAS.entrada, ...NATUREZAS.saida].find(x => x
 const S = {
   perfis: [], categorias: [], lancs: [], perfil: null,
   tela: 'inicio', carregadoEm: 0, offline: false,
-  hist: { busca: '', tipo: 'todos', limite: 60 },
+  hist: { busca: '', tipo: 'todos', limite: 60, de: '', ate: '' },
   filtros: { periodo: 'mes', usuario: 'todos', tipo: 'todos', categoria: 'todas', de: '', ate: '' },
   form: null,
   recorrentes: [], geradoEm: 0,
@@ -886,7 +886,10 @@ function telaHistorico() {
   return `
     <div class="hist-topo">
       <h1 class="titulo-tela">Histórico</h1>
-      <button class="lupa ${buscando ? 'on' : ''}" data-acao="h-lupa" aria-label="Buscar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg></button>
+      <div class="hist-botoes">
+        <button class="lupa ${h.de ? 'on' : ''}" data-acao="h-periodo" aria-label="Escolher data"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/></svg></button>
+        <button class="lupa ${buscando ? 'on' : ''}" data-acao="h-lupa" aria-label="Buscar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg></button>
+      </div>
     </div>
     ${buscando ? `<div class="busca">
       <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
@@ -895,6 +898,7 @@ function telaHistorico() {
     <div class="chips-h">
       ${[['todos', 'Tudo'], ['entrada', 'Entradas'], ['saida', 'Saídas']].map(([v, r]) =>
         `<button class="chip ${h.tipo === v ? 'ativo' : ''}" data-acao="h-tipo" data-v="${v}">${r}</button>`).join('')}
+      ${h.de ? `<button class="chip ativo chip-periodo" data-acao="h-periodo-limpar" aria-label="Tirar filtro de data">${esc(textoPeriodo(h.de, h.ate))} <span>×</span></button>` : ''}
     </div>
     <div id="h-res">${histResultados()}</div>`;
 }
@@ -923,10 +927,52 @@ function diaCurto(s) {
   return `${DIAS_SEMANA[d.getDay()]}, ${d.getDate()}${mes}${ano}`;
 }
 
+// "1 a 10 de set", "25 de set", "28 de ago a 3 de set"
+function textoPeriodo(de, ate) {
+  const d1 = deISO(de), d2 = deISO(ate), ano = d => d.getFullYear() !== new Date().getFullYear() ? ` de ${d.getFullYear()}` : '';
+  const dia = d => `${d.getDate()} de ${MESES[d.getMonth()]}${ano(d)}`;
+  if (de === ate) return dia(d1);
+  if (d1.getMonth() === d2.getMonth() && d1.getFullYear() === d2.getFullYear()) return `${d1.getDate()} a ${dia(d2)}`;
+  return `${dia(d1)} a ${dia(d2)}`;
+}
+
+function abrirPeriodoHist() {
+  const h = S.hist, hj = new Date(), y = hj.getFullYear(), m = hj.getMonth();
+  const semana = new Date(y, m, hj.getDate() - ((hj.getDay() + 6) % 7)); // segunda-feira
+  const atalhos = [
+    ['Hoje', hoje(), hoje()], ['Ontem', ontem(), ontem()],
+    ['Esta semana', iso(semana), hoje()], ['Este mês', iso(new Date(y, m, 1)), hoje()],
+    ['Mês passado', iso(new Date(y, m - 1, 1)), iso(new Date(y, m, 0))]
+  ];
+  abrirSheet(`
+    <div class="sheet-topo"><h2>Ver período</h2><button class="fechar" data-acao="fechar" aria-label="Fechar">×</button></div>
+    <div class="chips">${atalhos.map(([r, a, b]) =>
+      `<button class="chip ${h.de === a && h.ate === b ? 'ativo' : ''}" data-acao="h-atalho" data-de="${a}" data-ate="${b}">${r}</button>`).join('')}</div>
+    <div class="grupo periodo-datas">
+      <label>De<input type="date" class="campo" id="hp-de" value="${esc(h.de)}" max="${hoje()}"></label>
+      <label>Até<input type="date" class="campo" id="hp-ate" value="${esc(h.ate)}" max="${hoje()}"></label>
+    </div>
+    <p class="dica-nat">Para ver um dia só, coloque a mesma data nos dois.</p>
+    <div class="acoes-form">
+      <button class="btn" data-acao="h-periodo-ok">Ver</button>
+      ${h.de ? '<button class="btn link" data-acao="h-periodo-limpar" style="width:100%">Ver tudo</button>' : ''}
+    </div>`);
+  // escolheu só o "De": o "Até" acompanha
+  $('#hp-de').addEventListener('change', e => { if (!$('#hp-ate').value || $('#hp-ate').value < e.target.value) $('#hp-ate').value = e.target.value; });
+}
+
+function aplicarPeriodoHist(de, ate) {
+  if (de && ate && de > ate) [de, ate] = [ate, de];
+  S.hist.de = de || ''; S.hist.ate = de ? (ate || de) : '';
+  S.hist.limite = 60;
+  fecharSheet(); render(); window.scrollTo(0, 0);
+}
+
 function histResultados() {
   const h = S.hist, q = h.busca.trim().toLowerCase();
   const lista = S.lancs.filter(l => {
     if (h.tipo !== 'todos' && l.tipo !== h.tipo) return false;
+    if (h.de && (l.data < h.de || l.data > h.ate)) return false;
     if (!q) return true;
     const alvo = [l.descricao, cat(l.categoria_id)?.nome, perfil(l.usuario_id)?.nome, l.forma_pagamento, fmt(l.valor)].join(' ').toLowerCase();
     return alvo.includes(q);
@@ -934,7 +980,7 @@ function histResultados() {
   const vis = lista.slice(0, h.limite);
   let html = '', diaAtual = null;
   // sem busca, "Hoje" aparece sempre primeiro (mesmo vazio)
-  if (!q && vis[0]?.data !== hoje()) {
+  if (!q && !h.de && vis[0]?.data !== hoje()) {
     html += `<div class="dia-t">Hoje</div><div class="hoje-vazio"><span>Nada lançado hoje</span><button data-tela-ir="inicio">Lançar</button></div>`;
   }
   vis.forEach(l => {
@@ -947,7 +993,7 @@ function histResultados() {
     : '';
   return `
     ${resumo ? `<p class="resumo-busca">${resumo}</p>` : ''}
-    ${html ? `<div class="linha-tempo">${html}</div>` : `<p class="vazio-simples">Nada encontrado. Tente outra palavra.</p>`}
+    ${html ? `<div class="linha-tempo">${html}</div>` : `<p class="vazio-simples">${h.de && !q ? 'Nenhum lançamento nesse período.' : 'Nada encontrado. Tente outra palavra.'}</p>`}
     ${lista.length > vis.length ? `<button class="btn link" data-acao="h-mais" style="width:100%;margin-top:8px">Mostrar mais</button>` : ''}`;
 }
 
@@ -1736,6 +1782,10 @@ document.addEventListener('click', e => {
     case 'salvar': return salvarForm();
     case 'excluir': return excluirForm();
     case 'h-tipo': S.hist.tipo = el.dataset.v; S.hist.limite = 60; return render();
+    case 'h-periodo': return abrirPeriodoHist();
+    case 'h-atalho': return aplicarPeriodoHist(el.dataset.de, el.dataset.ate);
+    case 'h-periodo-ok': return aplicarPeriodoHist($('#hp-de').value, $('#hp-ate').value || $('#hp-de').value);
+    case 'h-periodo-limpar': return aplicarPeriodoHist('', '');
     case 'h-lupa':
       S.hist.buscando = !(S.hist.buscando || S.hist.busca);
       if (!S.hist.buscando) S.hist.busca = '';

@@ -915,3 +915,11 @@ input, select, textarea, .campo { font-size: 16px !important; }
   70% { opacity: 1; }
   100% { opacity: 0; transform: translateY(-14px); }
 }
+
+/* ---------- V2.17: escolher data/período no Histórico ---------- */
+.hist-botoes { display: flex; gap: 8px; }
+.chips-h { flex-wrap: wrap; }
+.chip-periodo span { margin-left: 4px; opacity: .8; }
+.periodo-datas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.periodo-datas label { display: flex; flex-direction: column; gap: 6px; font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; color: var(--txt-4); }
+.periodo-datas .campo { background: var(--bg); border-radius: 14px; min-height: 46px; color: var(--txt); text-transform: none; letter-spacing: 0; }
