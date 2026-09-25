@@ -1,5 +1,5 @@
-// Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.19.2';
+// Financeiro NP3D (Nosso Projeto 3D)
+const VERSAO = '2.19.3';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -1443,7 +1443,7 @@ function exportarCSV() {
       l.valor.toFixed(2).replace('.', ','), l.descricao, l.forma_pagamento, perfil(l.usuario_id)?.nome
     ].map(campo).join(';'));
   });
-  const nome = `caixa-np3d-${iv.de === '0000-01-01' ? 'tudo' : iv.de}-a-${iv.ate}.csv`;
+  const nome = `financeiro-np3d-${iv.de === '0000-01-01' ? 'tudo' : iv.de}-a-${iv.ate}.csv`;
   const arquivo = new File(['\ufeff' + linhas.join('\r\n')], nome, { type: 'text/csv' });
   if (navigator.canShare && navigator.canShare({ files: [arquivo] })) {
     navigator.share({ files: [arquivo], title: nome }).catch(() => {});
@@ -1519,7 +1519,7 @@ function telaAjustes() {
       </div>
     </section>
 
-    <p class="rodape">Caixa · Nosso Projeto 3D · versão ${VERSAO}</p>`;
+    <p class="rodape">Financeiro NP3D · versão ${VERSAO}</p>`;
 }
 
 function abrirCategoria(c = null) {

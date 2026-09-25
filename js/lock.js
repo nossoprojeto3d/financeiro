@@ -23,7 +23,7 @@ const Lock = (() => {
     const cred = await navigator.credentials.create({
       publicKey: {
         challenge: aleatorio(32),
-        rp: { name: 'Caixa Nosso Projeto 3D' },
+        rp: { name: 'Financeiro NP3D' },
         user: { id: aleatorio(16), name: email, displayName: nome },
         pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
         authenticatorSelection: {

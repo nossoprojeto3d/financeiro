@@ -1,4 +1,4 @@
-// Configuração do Caixa · Nosso Projeto 3D
+// Configuração do Financeiro NP3D
 // A chave pública pode ficar no GitHub: quem protege os dados são as regras
 // de segurança do banco (RLS) criadas no setup.sql.
 window.CAIXA_CONFIG = {
