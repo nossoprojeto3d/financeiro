@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.14.1';
+const VERSAO = '2.15.0';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -354,7 +354,7 @@ async function sincronizar() {
     S.lancs = novosLancs; S.categorias = c;
     try { localStorage.setItem('caixa_cache', JSON.stringify({ p: S.perfis, c, l: novosLancs })); } catch (_) {}
 
-    if (S.tela === 'historico' && $('#h-res')) { $('#h-res').innerHTML = histResultados(); $('.hoje-card').outerHTML = cartaoHoje(); }
+    if (S.tela === 'historico' && $('#h-res')) $('#h-res').innerHTML = histResultados();
     else render();
 
     if (deOutros.length === 1) {
@@ -845,48 +845,39 @@ async function excluirForm() {
 }
 
 /* ===================== Histórico ===================== */
-// O que foi lançado hoje (pelos dois), em destaque no topo. Sem total: decisão anterior.
-function cartaoHoje() {
-  const d = new Date(), deHoje = S.lancs.filter(l => l.data === hoje());
-  return `
-    <section class="hoje-card">
-      <div class="hoje-topo"><span>Hoje</span><small>${esc(DIAS_SEMANA[d.getDay()])}, ${d.getDate()} de ${esc(MESES_LONGO[d.getMonth()])}</small></div>
-      ${deHoje.length
-        ? `<div class="lista">${deHoje.map(itemHist).join('')}</div>`
-        : `<div class="hoje-vazio"><span>Nada lançado hoje</span><button data-tela-ir="inicio">Lançar agora</button></div>`}
-    </section>`;
-}
-
-function telaHistorico() {
-  const h = S.hist;
-  return `
-    <h1 class="titulo-tela">Histórico</h1>
-    ${cartaoHoje()}
-    <div class="busca">
-      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
-      <input class="campo" id="h-busca" type="search" placeholder="Buscar" value="${esc(h.busca)}">
-    </div>
-    <div class="segmento seg-h">
-      ${[['todos', 'Tudo'], ['entrada', 'Entradas'], ['saida', 'Saídas']].map(([v, r]) =>
-        `<button class="${h.tipo === v ? 'ativo' : ''}" data-acao="h-tipo" data-v="${v}">${r}</button>`).join('')}
-    </div>
-    <div id="h-res">${histResultados()}</div>`;
-}
-
 const SETA_ENT = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
 const SETA_SAI = '<svg viewBox="0 0 24 24"><path d="M12 5v14M6 13l6 6 6-6"/></svg>';
 const ICONE_REPETE = '<svg class="rep" viewBox="0 0 24 24" aria-label="Se repete todo mês"><path d="M17 2l3 3-3 3M4 11V9a4 4 0 0 1 4-4h12M7 22l-3-3 3-3M20 13v2a4 4 0 0 1-4 4H4"/></svg>';
 const DIAS_SEMANA = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
 
+function telaHistorico() {
+  const h = S.hist;
+  const buscando = h.buscando || h.busca;
+  return `
+    <div class="hist-topo">
+      <h1 class="titulo-tela">Histórico</h1>
+      <button class="lupa ${buscando ? 'on' : ''}" data-acao="h-lupa" aria-label="Buscar"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg></button>
+    </div>
+    ${buscando ? `<div class="busca">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
+      <input class="campo" id="h-busca" type="search" placeholder="Buscar descrição, categoria, valor…" value="${esc(h.busca)}">
+    </div>` : ''}
+    <div class="chips-h">
+      ${[['todos', 'Tudo'], ['entrada', 'Entradas'], ['saida', 'Saídas']].map(([v, r]) =>
+        `<button class="chip ${h.tipo === v ? 'ativo' : ''}" data-acao="h-tipo" data-v="${v}">${r}</button>`).join('')}
+    </div>
+    <div id="h-res">${histResultados()}</div>`;
+}
+
 function itemHist(l) {
   const c = cat(l.categoria_id), u = perfil(l.usuario_id);
-  const sub = [l.descricao ? c?.nome : null, l.forma_pagamento].filter(Boolean).join(' · ');
+  const sub = [l.descricao ? c?.nome : null, l.forma_pagamento, u && u.id !== S.perfil.id ? u.nome : null].filter(Boolean).join(' · ');
   return `
     <button class="item hist" data-acao="editar" data-id="${l.id}">
       <span class="icone-tipo ${l.tipo}">${l.tipo === 'entrada' ? SETA_ENT : SETA_SAI}</span>
       <span class="meio">
         <span class="titulo">${esc(l.descricao || c?.nome || 'Sem categoria')}</span>
-        <span class="sub">${u ? `<i class="quem" style="background:${esc(u.cor)}" title="${esc(u.nome)}">${esc(u.nome[0])}</i>` : ''}${l.recorrente_id ? ICONE_REPETE : ''}<span class="sub-txt">${esc(sub)}</span></span>
+        <span class="sub">${l.recorrente_id ? ICONE_REPETE : ''}<span class="sub-txt">${esc(sub)}</span></span>
       </span>
       <span class="v ${l.tipo === 'entrada' ? 'e' : 's'}">${l.tipo === 'entrada' ? '+' : '−'} ${esc(fmt(l.valor))}</span>
     </button>`;
@@ -896,50 +887,37 @@ function itemHist(l) {
 function diaCurto(s) {
   if (s === hoje()) return 'Hoje';
   if (s === ontem()) return 'Ontem';
-  const d = deISO(s);
-  return `${DIAS_SEMANA[d.getDay()]}, ${d.getDate()}`;
+  const d = deISO(s), h = new Date();
+  const mes = d.getMonth() !== h.getMonth() || d.getFullYear() !== h.getFullYear() ? ` de ${MESES_LONGO[d.getMonth()]}` : '';
+  const ano = d.getFullYear() !== h.getFullYear() ? ` de ${d.getFullYear()}` : '';
+  return `${DIAS_SEMANA[d.getDay()]}, ${d.getDate()}${mes}${ano}`;
 }
 
 function histResultados() {
   const h = S.hist, q = h.busca.trim().toLowerCase();
   const lista = S.lancs.filter(l => {
     if (h.tipo !== 'todos' && l.tipo !== h.tipo) return false;
-    if (!q) return l.data !== hoje(); // os de hoje já estão no cartão "Hoje"
-
+    if (!q) return true;
     const alvo = [l.descricao, cat(l.categoria_id)?.nome, perfil(l.usuario_id)?.nome, l.forma_pagamento, fmt(l.valor)].join(' ').toLowerCase();
     return alvo.includes(q);
   });
   const vis = lista.slice(0, h.limite);
-  const anoAtual = String(new Date().getFullYear());
-  let html = '', diaAtual = null, mesAtual = null;
+  let html = '', diaAtual = null;
+  // sem busca, "Hoje" aparece sempre primeiro (mesmo vazio)
+  if (!q && vis[0]?.data !== hoje()) {
+    html += `<div class="dia-t">Hoje</div><div class="hoje-vazio"><span>Nada lançado hoje</span><button data-tela-ir="inicio">Lançar</button></div>`;
+  }
   vis.forEach(l => {
-    const mes = l.data.slice(0, 7);
-    if (mes !== mesAtual) {
-      if (diaAtual) html += '</div>';
-      diaAtual = null; mesAtual = mes;
-      const [a, m] = mes.split('-');
-      const nome = MESES_LONGO[Number(m) - 1];
-      html += `<div class="mes-h">${nome[0].toUpperCase() + nome.slice(1)}${a !== anoAtual ? ` <span>${a}</span>` : ''}</div>`;
-    }
-    if (l.data !== diaAtual) {
-      if (diaAtual) html += '</div>';
-      diaAtual = l.data;
-      html += `<div class="dia-h">${esc(diaCurto(l.data))}</div><div class="bloco-lista">`;
-    }
+    if (l.data !== diaAtual) { diaAtual = l.data; html += `<div class="dia-t">${esc(diaCurto(l.data))}</div>`; }
     html += itemHist(l);
   });
-  if (diaAtual) html += '</div>';
   const total = soma(lista.filter(l => l.tipo === 'entrada')) - soma(lista.filter(l => l.tipo === 'saida'));
   const resumo = q
     ? `${lista.length} resultado${lista.length === 1 ? '' : 's'}${lista.length ? ` · ${h.tipo === 'saida' ? '' : total >= 0 ? '+' : '−'}${esc(fmt(Math.abs(total)))}` : ''}`
     : '';
-
-  // sem busca, o vazio já aparece no cartão "Hoje"
-  const vazio = q ? `<p class="vazio-simples">Nada encontrado. Tente outra palavra.</p>` : '';
-
   return `
     ${resumo ? `<p class="resumo-busca">${resumo}</p>` : ''}
-    ${vis.length ? `<div class="lista">${html}</div>` : vazio}
+    ${html ? `<div class="linha-tempo">${html}</div>` : `<p class="vazio-simples">Nada encontrado. Tente outra palavra.</p>`}
     ${lista.length > vis.length ? `<button class="btn link" data-acao="h-mais" style="width:100%;margin-top:8px">Mostrar mais</button>` : ''}`;
 }
 
@@ -1728,6 +1706,12 @@ document.addEventListener('click', e => {
     case 'salvar': return salvarForm();
     case 'excluir': return excluirForm();
     case 'h-tipo': S.hist.tipo = el.dataset.v; S.hist.limite = 60; return render();
+    case 'h-lupa':
+      S.hist.buscando = !(S.hist.buscando || S.hist.busca);
+      if (!S.hist.buscando) S.hist.busca = '';
+      render();
+      if (S.hist.buscando) $('#h-busca')?.focus();
+      return;
     case 'h-mais': S.hist.limite += 60; $('#h-res').innerHTML = histResultados(); return;
     case 'exportar': return exportarCSV();
     case 'f-repetir':

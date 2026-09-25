@@ -875,3 +875,23 @@ input, select, textarea, .campo { font-size: 16px !important; }
 .dialogo-acoes .btn.link { background: var(--bg); border: 1px solid var(--borda); color: var(--txt-2); }
 .dialogo-acoes .btn:not(.link):not(.perigo) { background: var(--ouro); color: var(--bg); }
 .dialogo-acoes .btn.perigo { background: var(--sai); color: #1d100b; border-color: var(--sai); }
+
+/* ---------- V2.15: Histórico em linha do tempo única ---------- */
+.hist-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.hist-topo .titulo-tela { margin: 8px 0 0; }
+.lupa { display: grid; place-items: center; width: 42px; height: 42px; margin-top: 8px; border-radius: 50%; background: var(--card); border: 1px solid var(--borda); color: var(--txt-3); }
+.lupa.on { color: var(--ouro); border-color: rgba(201, 162, 39, .45); }
+.lupa svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+.hist-topo + .busca { margin: 14px 0 0; }
+.chips-h { display: flex; gap: 6px; margin: 14px 0 4px; }
+.chips-h .chip { padding: 7px 14px; font-size: .85rem; }
+/* o nome do dia fica preso no topo enquanto rola */
+.dia-t {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 3;
+  margin: 0 -18px; padding: 14px 22px 8px;
+  background: linear-gradient(180deg, var(--bg) 75%, rgba(18, 14, 9, 0));
+  font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--ouro);
+}
+.linha-tempo .item.hist { padding: 11px 4px; border-bottom: 1px solid var(--borda); }
+.linha-tempo .item.hist:has(+ .dia-t), .linha-tempo .item.hist:last-child { border-bottom: 0; }
+.linha-tempo .hoje-vazio { padding: 6px 4px 12px; }
