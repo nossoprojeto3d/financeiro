@@ -780,5 +780,5 @@ input[type="date"].campo { min-height: 40px; -webkit-appearance: none; }
 }
 /* Com o teclado aberto: o botão não fica fixo (senão cobre o campo digitado) e
    sobra espaço no fim para a barra de setas do iPhone não esconder nada */
-.teclado-aberto .sheet:not(.centro) { padding-bottom: 72px; }
-.teclado-aberto .sheet:not(.centro) .acoes-form { position: static; background: none; margin-bottom: 0; }
+/* O botão continua fixo, mas sobe acima da barra de setas (↑ ↓ ✓) que o iPhone põe sobre o teclado */
+.teclado-aberto .sheet:not(.centro) .acoes-form { padding-bottom: 66px; background: linear-gradient(180deg, transparent, var(--card) 14%); }

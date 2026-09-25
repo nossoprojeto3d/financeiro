@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.12.4';
+const VERSAO = '2.12.5';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -82,10 +82,21 @@ function ajustarAreaVisivel() {
   r.setProperty('--vv-h', v.height + 'px');
   r.setProperty('--vv-top', v.offsetTop + 'px');
   // quanto do fim da tela está coberto (teclado): o painel de baixo fica acima disso
-  const baixo = Math.max(0, innerHeight - v.offsetTop - v.height);
-  r.setProperty('--vv-baixo', baixo + 'px');
-  document.documentElement.classList.toggle('teclado-aberto', baixo > 120);
+  r.setProperty('--vv-baixo', Math.max(0, innerHeight - v.offsetTop - v.height) + 'px');
 }
+
+// Teclado aberto = um campo do painel está sendo digitado. (Não dá para medir pela
+// altura: no app instalado, o iPhone encolhe a tela inteira junto com o teclado.)
+const ehCampo = el => el?.matches?.('#sheet input:not([type="date"]), #sheet textarea');
+document.addEventListener('focusin', e => {
+  if (!ehCampo(e.target)) return;
+  document.documentElement.classList.add('teclado-aberto');
+  // deixa o campo no meio do que sobra, para o botão não cobrir
+  setTimeout(() => { if (document.activeElement === e.target) e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 350);
+});
+document.addEventListener('focusout', () => {
+  setTimeout(() => { if (!ehCampo(document.activeElement)) document.documentElement.classList.remove('teclado-aberto'); }, 120);
+});
 window.visualViewport?.addEventListener('resize', ajustarAreaVisivel);
 window.visualViewport?.addEventListener('scroll', ajustarAreaVisivel);
 ajustarAreaVisivel();
