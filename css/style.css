@@ -953,3 +953,7 @@ input, select, textarea, .campo { font-size: 16px !important; }
 .cal-grade button.ini::before, .cal-grade button.fim::before { z-index: -1; }
 .cal-sel { text-align: center; font-size: .9rem; color: var(--txt); margin: 0 0 12px; }
 .cal-sel span { color: var(--txt-4); }
+
+/* ---------- V2.19.2: lista de categorias como popup ---------- */
+#f-cat-painel .lista-cat { margin-top: 6px; }
+#f-cat-painel .sheet-topo h2 { flex: none; text-align: left; }

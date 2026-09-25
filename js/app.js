@@ -1,5 +1,5 @@
 // Caixa · Nosso Projeto 3D — V1
-const VERSAO = '2.19.1';
+const VERSAO = '2.19.2';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -731,13 +731,7 @@ function renderPainelCats() {
   const lista = categoriasOrdenadas(f.tipo);
   const nat = NATUREZAS[f.tipo];
   painel.innerHTML = `
-    <div class="sheet-topo">
-      <button class="voltar" data-acao="f-cat-fechar" aria-label="Voltar"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
-      <h2>Categoria</h2>
-      <span style="width:34px"></span>
-    </div>
-    ${lista.length > 7 ? `<div class="busca"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4-4"/></svg>
-      <input class="campo" id="fc-busca" type="search" placeholder="Buscar categoria"></div>` : ''}
+    <div class="sheet-topo"><h2>Categoria</h2><button class="fechar" data-acao="f-cat-fechar" aria-label="Fechar">×</button></div>
     <div class="bloco-lista lista-cat">
       ${lista.map(c => `
         <button class="item ${f.categoria_id === c.id ? 'escolhida' : ''}" data-acao="f-cat" data-id="${c.id}" data-nome="${esc(c.nome.toLowerCase())}">
@@ -756,10 +750,6 @@ function renderPainelCats() {
         <p class="dica-nat">${esc(nat.find(n => n[0] === f.novaCat.natureza)[2])}</p>
         <button class="btn" data-acao="nc-criar">Criar e usar</button>
       </div>` : `<button class="btn link nova-cat-btn" data-acao="f-nova-cat">+ Nova categoria</button>`}`;
-  $('#fc-busca')?.addEventListener('input', e => {
-    const q = e.target.value.trim().toLowerCase();
-    $$('.lista-cat .item').forEach(b => { b.hidden = !!q && !b.dataset.nome.includes(q); });
-  });
   if (f.novaCat) {
     const i = $('#nc-nome');
     i.addEventListener('input', e => { f.novaCat.nome = e.target.value; });
@@ -770,7 +760,7 @@ function renderPainelCats() {
 function abrirPainelCat(abrir) {
   if (!S.form) return;
   S.form.novaCat = null;
-  if (abrir) { abrirSheet('<div id="f-cat-painel"></div>', { deBaixo: true }); renderPainelCats(); }
+  if (abrir) { abrirSheet('<div id="f-cat-painel"></div>'); renderPainelCats(); }
   else fecharSheet();
 }
 
