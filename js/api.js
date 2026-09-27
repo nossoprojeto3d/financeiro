@@ -31,17 +31,31 @@ const Api = (() => {
     return m || 'Algo deu errado.';
   }
 
+  let ultimaResposta = 0; // hora da última resposta do servidor
   async function chamar(url, opcoes) {
-    try { return await fetch(url, opcoes); }
+    try { const r = await fetch(url, opcoes); ultimaResposta = Date.now(); return r; }
     catch (e) { throw new Error(traduzir(e.message)); }
+  }
+  const esperar = ms => new Promise(ok => setTimeout(ok, ms));
+
+  // Depois de muito tempo parado, o iPhone às vezes usa uma conexão que já caiu e
+  // a primeira chamada falha. Antes de gravar, uma consulta leve (que pode repetir
+  // sem risco) acorda a conexão; assim o lançamento não precisa ser repetido.
+  async function acordar() {
+    if (Date.now() - ultimaResposta < 60e3) return;
+    const url = `${C.SUPABASE_URL}/rest/v1/perfis?select=id&limit=1`;
+    const h = { apikey: C.SUPABASE_KEY, Authorization: `Bearer ${sessao.access_token}` };
+    await chamar(url, { headers: h }).catch(() => esperar(700).then(() => chamar(url, { headers: h }))).catch(() => {});
   }
 
   async function auth(caminho, corpo) {
-    const r = await chamar(`${C.SUPABASE_URL}/auth/v1/${caminho}`, {
+    const pedido = () => chamar(`${C.SUPABASE_URL}/auth/v1/${caminho}`, {
       method: 'POST',
       headers: { apikey: C.SUPABASE_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(corpo)
     });
+    // Falha de rede: tenta mais uma vez (entrar e renovar a sessão não duplicam nada)
+    const r = await pedido().catch(() => esperar(700).then(pedido));
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       const msg = traduzir(j.error_description || j.msg || j.message || j.error);
@@ -94,6 +108,7 @@ const Api = (() => {
 
   async function rest(caminho, { method = 'GET', body, prefer, range } = {}, tentar = true) {
     const headers = { apikey: C.SUPABASE_KEY, Authorization: `Bearer ${await token()}` };
+    if (method === 'POST') await acordar();
     if (body) headers['Content-Type'] = 'application/json'; // só quando há corpo (DELETE vai sem)
     if (prefer) headers.Prefer = prefer;
     if (range) { headers.Range = range; headers['Range-Unit'] = 'items'; }
@@ -103,7 +118,7 @@ const Api = (() => {
     // Falha de rede: tenta mais uma vez (menos no POST, que poderia duplicar)
     const r = await pedido().catch(async e => {
       if (method === 'POST') throw e;
-      await new Promise(ok => setTimeout(ok, 700));
+      await esperar(700);
       return pedido();
     });
     if (r.status === 401 && tentar) { await renovar(); return rest(caminho, { method, body, prefer, range }, false); }
@@ -155,6 +170,7 @@ const Api = (() => {
 
     // V2: análise com IA (Edge Function que guarda a chave do Gemini)
     analisar: async dados => {
+      await token(); await acordar();
       const r = await chamar(`${C.SUPABASE_URL}/functions/v1/analise`, {
         method: 'POST',
         headers: { apikey: C.SUPABASE_KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' },

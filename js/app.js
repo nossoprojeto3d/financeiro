@@ -1,5 +1,5 @@
 // Financeiro NP3D (Nosso Projeto 3D)
-const VERSAO = '3.0.2';
+const VERSAO = '3.0.3';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
