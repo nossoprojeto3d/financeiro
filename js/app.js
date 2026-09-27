@@ -1,5 +1,5 @@
 // Financeiro NP3D (Nosso Projeto 3D)
-const VERSAO = '3.0.3';
+const VERSAO = '3.0.4';
 
 /* ===================== Utilidades ===================== */
 const $ = (s, el = document) => el.querySelector(s);
@@ -388,7 +388,27 @@ async function tratarErro(e) {
   else toast(e.message, true);
 }
 
+// Abre na hora com os últimos dados guardados no celular e atualiza por trás
+// (sem a tela de carregamento piscando). Só na primeira vez busca antes de mostrar.
+function abrirComGuardados() {
+  let cache = null;
+  try { cache = JSON.parse(localStorage.getItem('caixa_cache') || 'null'); } catch (_) {}
+  if (!cache?.p || !cache.c || !cache.l) return false;
+  const eu = cache.p.find(p => p.id === Api.sessao().user.id);
+  if (!eu) return false;
+  S.perfis = cache.p; S.categorias = cache.c; S.lancs = cache.l; S.recorrentes = cache.rc || [];
+  S.perfil = eu;
+  $('#porta').hidden = true;
+  $('#shell').hidden = false;
+  marcarUso();
+  render();
+  iniciarSync();
+  sincronizar();
+  return true;
+}
+
 async function entrarNoApp(acabouDeLogar = false) {
+  if (!acabouDeLogar && abrirComGuardados()) return;
   mostrarPorta('<div class="carregando"><div class="giro"></div></div>');
   try { await carregarTudo(); }
   catch (e) { return tratarErro(e); }
