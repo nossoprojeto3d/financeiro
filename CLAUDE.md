@@ -57,5 +57,13 @@ Fundo `#120E09`, cards `#17130D`, bordas `#241C12` / `#3A3226`, dourado `#C9A227
 - Categorias não têm "arquivar": só criar, editar e excluir. Excluir uma categoria com lançamentos pede outra categoria para recebê-los (e os recorrentes). A coluna `ativa` ficou no banco, mas o app não usa mais.
 - A natureza da categoria fica (aparece como "Conta como"): é ela que alimenta as contas da Gestão (lucro, meta mínima, equipamentos).
 
+## Roteiro de teste
+Usado pelo `/conferir-site`. **O banco é o de verdade, com o dinheiro real da empresa:** nunca crie, edite ou apague lançamentos, categorias ou recorrentes para testar, e nunca digite senha. Só dá para testar sem login, ou com o usuário logado na própria sessão dele, apenas olhando.
+1. A tela de login abre sem erros no console e sem violação de CSP.
+2. `manifest.json` e `sw.js` carregam; o nome "Financeiro NP3D" aparece no título e no manifest.
+3. Layout do iPhone (390×844): nada vazando, navegação inferior visível.
+4. Se o usuário estiver logado: abrir Início, Histórico, Gestão e Ajustes sem tocar em "Lançar", "Excluir" ou "Salvar". Os gráficos aparecem.
+5. Antes de publicar: `CACHE` no `sw.js` e `VERSAO` no `app.js` foram aumentados.
+
 ## Próximos passos planejados (V3)
 Metas de gasto por categoria, foto do comprovante no lançamento (Supabase Storage) e lançar sem internet com envio depois.
