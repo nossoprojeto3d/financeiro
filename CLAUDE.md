@@ -6,7 +6,7 @@ PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena e
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
-- **HTML, CSS e JS puros:** sem frameworks, sem build, sem npm, sem bibliotecas. Gráficos em SVG feitos à mão. O Supabase é acessado com `fetch` direto (REST e Auth), sem o SDK.
+- **Stack:** hoje é HTML, CSS e JS puros, com gráficos em SVG feitos à mão e o Supabase acessado com `fetch` direto (REST e Auth). Libs e frameworks gratuitos podem entrar; pago só com autorização.
 - **Caminhos relativos** (o repositório é `nossoprojeto3d/financeiro`, publicado pelo GitHub Pages numa subpasta).
 - **Tudo em português do Brasil**, inclusive nomes de funções e variáveis.
 - **Linguagem para leigos:** os donos estão começando e não conhecem termos de finanças. Nada de "margem de contribuição", "ponto de equilíbrio" ou "custo variável" na interface; use "gastos para produzir e entregar", "contas fixas", "lucro", "meta mínima de vendas".
