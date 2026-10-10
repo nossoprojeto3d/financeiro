@@ -1,6 +1,15 @@
-# Caixa · Nosso Projeto 3D — V2
+# Financeiro NP3D
 
-Controle de caixa e gestão financeira da empresa, em PWA. HTML/CSS/JS puro, sem bibliotecas, banco no Supabase (plano grátis) e hospedagem no GitHub Pages. Custo mensal: zero.
+Controle de caixa e gestão financeira da empresa, em PWA. Desde a versão 4.0: Vite + Svelte + Tailwind (código em `app/`), banco no Supabase (plano grátis) e hospedagem no GitHub Pages. Custo mensal: zero.
+
+## Publicar uma mudança
+
+```
+cd app
+npm install        # só na primeira vez
+npm run build      # gera o site na raiz do repositório
+```
+Depois faça commit e push da `main`. Antes, suba `CACHE` em `app/public/sw.js` e `VERSAO` em `app/src/lib/estado.svelte.js`. Para ver no navegador enquanto mexe: `npm run dev`.
 
 ## O que tem na V1 (base)
 
@@ -30,7 +39,7 @@ Controle de caixa e gestão financeira da empresa, em PWA. HTML/CSS/JS puro, sem
 6. Em **Project Settings › API** (ou botão **Connect**), copie a **Project URL** e a chave pública (**anon** ou **publishable**). Nunca use a chave `service_role` / `secret` no app.
 
 ### 2. App
-1. Abra `js/config.js` e preencha `SUPABASE_URL`, `SUPABASE_KEY` e os dois e-mails.
+1. Abra `app/src/lib/config.js` e preencha `SUPABASE_URL`, `SUPABASE_KEY` e os dois e-mails. Gere o build (veja acima).
 2. Crie o repositório `nossoprojeto3d/caixa` no GitHub e suba todos os arquivos.
 3. Em **Settings › Pages**, publique a branch `main`, pasta raiz. O endereço fica `https://nossoprojeto3d.github.io/caixa/`.
 
