@@ -8,9 +8,7 @@
 
   const caixa = $derived(saldoCaixa(S.lancs))
   const a = $derived(analise(S.lancs, cat, 'mes'))
-  // meta mínima: usa a média dos últimos 3 meses, que é mais estável que o mês corrente
-  const a3 = $derived(analise(S.lancs, cat, '3m'))
-  const meta = $derived(a3?.meta ?? null)
+  const meta = $derived(a?.meta ?? null)
   const vendas = $derived(a?.n.venda ?? 0)
   const progresso = $derived(meta ? vendas / meta : 0)
   const mes = MESES_LONGO[new Date().getMonth()]

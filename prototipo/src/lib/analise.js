@@ -46,6 +46,16 @@ const mesesEntre = iv => {
 
 export const saldoCaixa = lancs => lancs.reduce((a, l) => a + (l.tipo === 'entrada' ? 1 : -1) * cent(l.valor), 0) / 100
 
+// Meta mínima de vendas por mês: sempre pela média dos últimos 3 meses (mais estável que um mês só),
+// igual no Início e na Gestão, qualquer que seja o período escolhido
+export function metaMinima(lancs, cat) {
+  const iv = intervalo('3m')
+  const n = porNatureza(lancs.filter(l => noIv(l, iv)), cat)
+  if (n.venda <= 0) return null
+  const sobra = (n.venda - n.variavel) / n.venda
+  return sobra > 0 ? n.fixa / mesesEntre(iv) / sobra : null
+}
+
 export function analise(lancs, cat, periodo) {
   let iv = intervalo(periodo)
   const ivAnt = intervaloAnterior(periodo, iv)
@@ -68,7 +78,7 @@ export function analise(lancs, cat, periodo) {
     fixaMes: n.fixa / meses,
   }
   r.variacaoCaixa = (cent(r.ent) - cent(r.sai)) / 100
-  r.meta = r.sobraPct > 0 ? r.fixaMes / r.sobraPct : null
+  r.meta = metaMinima(lancs, cat)
   if (ivAnt) {
     const a = porNatureza(lancs.filter(l => noIv(l, ivAnt)), cat)
     r.ant = { venda: a.venda, lucro: a.venda - a.variavel - a.fixa }
