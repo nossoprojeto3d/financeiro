@@ -1,0 +1,59 @@
+@import 'tailwindcss';
+
+/* Identidade "Camadas": grafite azulado, âmbar de bico quente como único destaque */
+@theme {
+  --color-fundo: #101218;
+  --color-sup: #181b23;
+  --color-sup-2: #20242e;
+  --color-sup-3: #2a2f3b;
+  --color-linha: #2b303c;
+  --color-txt: #eceef3;
+  --color-txt-2: #9aa1b1;
+  --color-txt-3: #646b7b;
+  --color-ambar: #f5b83d;
+  --color-ambar-forte: #ffcb5c;
+  --color-ambar-fundo: #3a2d12;
+  --color-ent: #4fe0a5;
+  --color-ent-fundo: #143428;
+  --color-sai: #ff7b8b;
+  --color-sai-fundo: #3a1c22;
+
+  --font-num: 'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Instrument Sans Variable', ui-sans-serif, system-ui, sans-serif;
+
+  --ease-mola: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
+  body {
+    background: var(--color-fundo);
+    color: var(--color-txt);
+    font-family: var(--font-sans);
+    font-feature-settings: 'tnum' 0;
+    overscroll-behavior: none;
+  }
+  button { cursor: pointer; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; touch-action: manipulation; }
+  /* com algo aberto por cima, a tela de trás não rola junto */
+  body:has(.trava-rolagem) { overflow: hidden; }
+  :focus-visible { outline: 2px solid var(--color-ambar); outline-offset: 2px; border-radius: 8px; }
+}
+
+@utility num {
+  font-family: var(--font-num);
+  font-variant-numeric: tabular-nums;
+  font-variation-settings: 'wdth' 90;
+  letter-spacing: -0.02em;
+}
+
+/* Linhas de camada (textura de impressão 3D) */
+@utility camadas {
+  background-image: repeating-linear-gradient(to top, currentColor 0 2px, transparent 2px 5px);
+}
+
+@utility pb-seguro { padding-bottom: env(safe-area-inset-bottom); }
+@utility pt-seguro { padding-top: env(safe-area-inset-top); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
