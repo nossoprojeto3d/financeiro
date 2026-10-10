@@ -18,7 +18,7 @@
   <div class="space-y-5 lg:space-y-6">
     <header class="flex items-center justify-between pt-1">
       <div>
-        <p class="text-[13px] text-txt-3 first-letter:uppercase">{DIAS[agora.getDay()]}, {agora.getDate()} de {MESES_LONGO[agora.getMonth()]}</p>
+        <p class="text-[13px] text-txt-3 first-letter:uppercase">{DIAS[agora.getDay()]}, {agora.getDate()} de {MESES_LONGO[agora.getMonth()]}<span class="ml-2 rounded-full bg-ambar-fundo px-2 py-0.5 text-[11px] text-ambar">dados de exemplo</span></p>
         <h1 class="num text-[26px] font-semibold lg:text-[32px]">Oi, {S.perfil.nome}</h1>
       </div>
       <button class="grid size-11 place-items-center rounded-full text-[17px] font-semibold text-fundo lg:hidden" style="background:{S.perfil.cor}" aria-label="Ajustes" onclick={() => irPara('ajustes')}>{S.perfil.nome[0]}</button>

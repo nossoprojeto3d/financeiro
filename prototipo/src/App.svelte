@@ -28,6 +28,7 @@
     <div class="mb-8 flex items-center gap-2.5 px-2">
       <img src="./favicon.svg" alt="" class="size-8" />
       <span class="num text-[17px] font-semibold">Financeiro</span>
+      <span class="rounded-full bg-ambar-fundo px-2 py-0.5 text-[11px] text-ambar">exemplo</span>
     </div>
     <button class="mb-6 flex h-11 items-center justify-center gap-2 rounded-2xl bg-ambar text-[15px] font-semibold text-fundo hover:bg-ambar-forte" onclick={novo}>
       <Plus size={18} strokeWidth={2.4} /> Novo lançamento
