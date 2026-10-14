@@ -132,7 +132,8 @@
 <svelte:window onkeydown={teclaFisica} />
 
 {#if f}
-  <div class="flex h-full flex-col {modo === 'tela' ? 'pt-seguro' : ''}">
+  <!-- no painel do computador: cresce com o conteúdo (o painel rola) e o botão fica preso embaixo -->
+  <div class="flex flex-col {modo === 'tela' ? 'h-full pt-seguro' : 'min-h-full'}">
     <!-- Topo -->
     <div class="flex items-center gap-2 px-4 pt-3 {modo === 'painel' ? 'px-5 pt-5' : ''}">
       {#if !fixo || f.id || f.fiado}
@@ -223,7 +224,7 @@
       <Teclado aoTocar={tecla} compacto={modo === 'painel'} />
     </div>
 
-    <div class="px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] {modo === 'painel' ? 'px-5 pb-5' : ''}">
+    <div class="px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] {modo === 'painel' ? 'sticky bottom-0 z-10 bg-sup px-5 pb-5' : ''}">
       <button
         class="flex h-14 w-full items-center justify-center gap-2 rounded-2xl text-[17px] font-semibold text-fundo transition-[transform,opacity] active:scale-[0.98] disabled:opacity-60 {f.tipo === 'saida' ? 'bg-sai' : 'bg-ent'}"
         disabled={enviando}
