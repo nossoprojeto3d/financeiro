@@ -157,10 +157,13 @@ export const Api = (() => {
     criarCategoria: d => rest('categorias', { method: 'POST', body: d, ...volta }).then(r => r[0]),
     editarCategoria: (id, d) => rest(`categorias?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
     excluirCategoria: id => rest(`categorias?id=eq.${id}`, { method: 'DELETE' }),
-    // Passa lançamentos e recorrentes de uma categoria para outra (antes de excluir)
+    // Passa lançamentos, recorrentes e fiados de uma categoria para outra (antes de excluir)
     moverCategoria: async (de, para) => {
       await rest(`lancamentos?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } });
       await rest(`recorrentes?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } });
+      // sem a tabela de fiados no banco (v4-fiados.sql não rodado), segue
+      await rest(`fiados?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } })
+        .catch(e => { if (e.auth || !/fiados/i.test(e.message)) throw e; });
     },
 
     // V2: recorrentes
@@ -169,6 +172,16 @@ export const Api = (() => {
     editarRecorrente: (id, d) => rest(`recorrentes?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
     excluirRecorrente: id => rest(`recorrentes?id=eq.${id}`, { method: 'DELETE' }),
     gerarRecorrentes: () => rest('rpc/gerar_recorrentes', { method: 'POST', body: {} }),
+
+    // V4: fiados (quem levou e ainda não pagou)
+    fiados: () => todos('fiados?select=*&order=data.asc,id.asc'),
+    criarFiado: d => rest('fiados', { method: 'POST', body: d, ...volta }).then(r => r[0]),
+    editarFiado: (id, d) => rest(`fiados?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
+    // devolve o que apagou: vazio quando o fiado já tinha sido recebido ou excluído em outro celular
+    excluirFiado: id => rest(`fiados?id=eq.${id}`, { method: 'DELETE', ...volta }),
+    // Apaga o fiado e cria a venda no mesmo passo (função receber_fiado do banco)
+    receberFiado: (id, forma, data) => rest('rpc/receber_fiado', { method: 'POST', body: { p_id: id, p_forma: forma, p_data: data } })
+      .then(r => (Array.isArray(r) ? r[0] : r)),
 
     // V2: análise com IA (Edge Function que guarda a chave do Gemini)
     analisar: async dados => {

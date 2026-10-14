@@ -5,8 +5,9 @@ import { Api } from './api.js'
 import { Lock } from './lock.js'
 import { cent, hoje, deISO, fmt } from './formato.js'
 import { corDaPosicao } from './dados.js'
+import { ordenarFiados, categoriaPadraoFiado } from './fiados.js'
 
-export const VERSAO = '4.0.0'
+export const VERSAO = '4.1.0'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app'
@@ -17,6 +18,8 @@ export const S = $state({
   categorias: [],
   lancs: [],
   recorrentes: [],
+  fiados: [],
+  temFiados: false, // a tabela de fiados existe no banco (v4-fiados.sql)
   lancar: null, // formulário de lançamento aberto (null = fechado)
   periodo: 'mes',
   aviso: null,
@@ -109,12 +112,24 @@ async function buscarRecorrentes() {
   try { return (await Api.recorrentes()).map(numerico) }
   catch (e) { if (e.auth) throw e; return [] }
 }
+// Sem a tabela no banco, o Supabase responde que não achou "fiados": aí o app segue sem fiados.
+// Sem internet é outro erro e sobe (a lista não some por uma falha de rede).
+async function buscarFiados() {
+  try { return ordenarFiados((await Api.fiados()).map(numerico)) }
+  catch (e) { if (!e.auth && /fiados/i.test(e.message)) return null; throw e }
+}
+function usarFiados(lista) {
+  S.temFiados = !!lista
+  S.fiados = lista || []
+}
+const assinaturaFiados = lista => lista.map(f => `${f.id}:${f.atualizado_em}`).join(',')
 
 function guardarCache() {
   try {
     localStorage.setItem('caixa_cache', JSON.stringify({
       p: $state.snapshot(S.perfis), c: semCor($state.snapshot(S.categorias)),
       l: $state.snapshot(S.lancs), rc: $state.snapshot(S.recorrentes),
+      f: $state.snapshot(S.fiados), tf: S.temFiados,
     }))
   } catch (_) {}
 }
@@ -122,10 +137,11 @@ function guardarCache() {
 export async function carregarTudo() {
   try {
     await gerarRecorrentes(true)
-    const [p, c, l, rc] = await Promise.all([Api.perfis(), Api.categorias(), Api.lancamentos(), buscarRecorrentes()])
+    const [p, c, l, rc, fz] = await Promise.all([Api.perfis(), Api.categorias(), Api.lancamentos(), buscarRecorrentes(), buscarFiados()])
     S.perfis = p
     S.categorias = comCores(c)
     S.recorrentes = rc
+    usarFiados(fz)
     S.lancs = ordenar(l.map(numerico))
     S.offline = false
     S.carregadoEm = Date.now()
@@ -135,6 +151,7 @@ export async function carregarTudo() {
     const cache = JSON.parse(localStorage.getItem('caixa_cache') || 'null')
     if (!cache) throw e
     S.perfis = cache.p; S.categorias = comCores(cache.c); S.lancs = ordenar(cache.l); S.recorrentes = cache.rc || []
+    S.fiados = cache.f || []; S.temFiados = !!cache.tf
     S.offline = true
     avisar('Sem conexão. Mostrando os últimos dados salvos.', 'erro')
   }
@@ -161,7 +178,7 @@ const digitando = () => !!document.activeElement?.matches?.('input, textarea')
 const ocupado = () => {
   const f = S.lancar
   return digitando() || S.folhas > 0 || S.arrastando || !!S.confirmar ||
-    !!(f && (f.id || f.centavos || f.descricao.trim()))
+    !!(f && (f.id || f.centavos || f.descricao.trim() || f.nome?.trim()))
 }
 
 function iniciarSync() {
@@ -174,23 +191,32 @@ export async function sincronizar() {
   sincronizando = true
   try {
     await gerarRecorrentes()
-    const [c, l, rc] = await Promise.all([Api.categorias(), Api.lancamentos(), buscarRecorrentes()])
+    const [c, l, rc, fz] = await Promise.all([Api.categorias(), Api.lancamentos(), buscarRecorrentes(), buscarFiados()])
     const novos = ordenar(l.map(numerico))
     S.recorrentes = rc
     S.offline = false
     S.carregadoEm = Date.now()
-    if (assinatura(novos, c) === assinatura(S.lancs, S.categorias)) return
+    const mudouLancs = assinatura(novos, c) !== assinatura(S.lancs, S.categorias)
+    const mudouFiados = !!fz !== S.temFiados || assinaturaFiados(fz || []) !== assinaturaFiados(S.fiados)
+    if (!mudouLancs && !mudouFiados) return
     if (ocupado()) return
 
     const antes = new Set(S.lancs.map(x => x.id))
     const deOutros = novos.filter(x => !antes.has(x.id) && x.usuario_id !== S.perfil.id)
+    const fiadosAntes = new Set(S.fiados.map(x => x.id))
+    const fiadosDeOutros = (fz || []).filter(x => !fiadosAntes.has(x.id) && x.usuario_id !== S.perfil.id)
     S.lancs = novos
     S.categorias = comCores(c)
+    usarFiados(fz)
     guardarCache()
     if (deOutros.length === 1) {
       const n = deOutros[0]
       avisar(`${perfil(n.usuario_id)?.nome || 'Alguém'} lançou ${n.tipo === 'entrada' ? 'uma entrada' : 'uma saída'} de ${fmt(n.valor)}`)
     } else if (deOutros.length > 1) avisar(`${deOutros.length} lançamentos novos`)
+    else if (fiadosDeOutros.length === 1) {
+      const n = fiadosDeOutros[0]
+      avisar(`${perfil(n.usuario_id)?.nome || 'Alguém'} anotou um fiado de ${fmt(n.valor)}`)
+    } else if (fiadosDeOutros.length > 1) avisar(`${fiadosDeOutros.length} fiados novos`)
   } catch (e) {
     if (e.auth) tratarErro(e) // sem internet: tenta de novo no próximo ciclo, sem avisar
   } finally {
@@ -207,6 +233,7 @@ function abrirComGuardados() {
   const eu = cache.p.find(p => p.id === Api.sessao().user.id)
   if (!eu) return false
   S.perfis = cache.p; S.categorias = comCores(cache.c); S.lancs = ordenar(cache.l); S.recorrentes = cache.rc || []
+  S.fiados = cache.f || []; S.temFiados = !!cache.tf
   S.perfil = eu
   S.fase = 'app'
   marcarUso()
@@ -282,21 +309,32 @@ export function abrirLancar(tipo = 'entrada', lanc = null, { repetir = false } =
   S.lancar = lanc
     ? { id: lanc.id, tipo: lanc.tipo, centavos: Math.round(lanc.valor * 100), categoria_id: lanc.categoria_id,
         data: lanc.data, descricao: lanc.descricao || '', forma_pagamento: lanc.forma_pagamento || '',
-        usuario_id: lanc.usuario_id, repetir: false, recorrente_id: lanc.recorrente_id || null }
+        usuario_id: lanc.usuario_id, repetir: false, recorrente_id: lanc.recorrente_id || null, fiado: false, nome: '' }
     : { id: null, tipo, centavos: 0, categoria_id: null, data: hoje(), descricao: '',
-        forma_pagamento: '', usuario_id: S.perfil.id, repetir }
+        forma_pagamento: '', usuario_id: S.perfil.id, repetir, fiado: false, nome: '' }
 }
 export const fecharLancar = () => { S.lancar = null }
+
+// Formulário no modo fiado: sem argumento anota um novo; com um fiado, edita
+export function abrirFiado(fz = null) {
+  S.lancar = fz
+    ? { id: fz.id, tipo: 'entrada', centavos: Math.round(fz.valor * 100), categoria_id: fz.categoria_id,
+        data: fz.data, descricao: fz.descricao, forma_pagamento: '', usuario_id: fz.usuario_id,
+        repetir: false, recorrente_id: null, fiado: true, nome: fz.nome }
+    : { id: null, tipo: 'entrada', centavos: 0, categoria_id: categoriaPadraoFiado(categoriasDoTipo('entrada'))?.id ?? null,
+        data: hoje(), descricao: '', forma_pagamento: '', usuario_id: S.perfil.id, repetir: false, fiado: true, nome: '' }
+}
 
 // Trocar de tela descarta um lançamento em branco (o painel do Início abre outro)
 export function irPara(t) {
   const f = S.lancar
-  if (f && !f.id && !f.centavos && !f.descricao.trim()) S.lancar = null
+  if (f && !f.id && !f.centavos && !f.descricao.trim() && !f.nome?.trim()) S.lancar = null
   S.tela = t
   window.scrollTo({ top: 0 })
 }
 
 export async function salvarLanc(f) {
+  if (f.fiado) return salvarFiado(f)
   const dados = {
     tipo: f.tipo, valor: f.centavos / 100, categoria_id: f.categoria_id, data: f.data,
     descricao: f.descricao.trim() || null, forma_pagamento: f.forma_pagamento || null, usuario_id: f.usuario_id,
@@ -326,6 +364,52 @@ export async function excluirLanc(id) {
   guardarCache()
 }
 
+/* ---------- Fiados ---------- */
+export const SUMIU = 'Esse fiado já foi recebido ou excluído.'
+// Recebido ou excluído em outro celular: tira da lista e traz o que está no banco (a venda, se virou venda)
+function fiadoSumiu(id) {
+  S.fiados = S.fiados.filter(x => x.id !== id)
+  guardarCache()
+  carregarTudo().catch(() => {})
+  return new Error(SUMIU)
+}
+
+async function salvarFiado(f) {
+  const dados = { nome: f.nome.trim(), valor: f.centavos / 100, categoria_id: f.categoria_id,
+    descricao: f.descricao.trim(), data: f.data, usuario_id: f.usuario_id }
+  if (f.id) {
+    const r = await Api.editarFiado(f.id, dados)
+    if (!r) throw fiadoSumiu(f.id)
+    const i = S.fiados.findIndex(x => x.id === f.id)
+    if (i >= 0) S.fiados[i] = numerico(r); else S.fiados.push(numerico(r))
+  } else {
+    S.fiados.push(numerico(await Api.criarFiado(dados)))
+  }
+  ordenarFiados(S.fiados)
+  guardarCache()
+}
+
+export async function excluirFiado(id) {
+  const r = await Api.excluirFiado(id)
+  if (!r?.length) throw fiadoSumiu(id)
+  S.fiados = S.fiados.filter(x => x.id !== id)
+  guardarCache()
+}
+
+export async function receberFiado(fz, forma, data) {
+  try {
+    const lanc = await Api.receberFiado(fz.id, forma, data)
+    S.lancs.push(numerico(lanc))
+    ordenar(S.lancs)
+    S.fiados = S.fiados.filter(x => x.id !== fz.id)
+    guardarCache()
+  } catch (e) {
+    // recebido em outro celular (ou a resposta se perdeu e o 2º toque chegou): traz o que está no banco
+    if (e.message === SUMIU) carregarTudo().catch(() => {})
+    throw e
+  }
+}
+
 /* ---------- Categorias ---------- */
 export async function criarCategoria({ nome, tipo, natureza }) {
   const existe = S.categorias.find(c => c.tipo === tipo && c.nome.toLowerCase() === nome.toLowerCase())
@@ -350,6 +434,7 @@ export async function excluirCategoria(c, destino = null) {
       await Api.moverCategoria(c.id, destino)
       S.lancs.forEach(l => { if (l.categoria_id === c.id) l.categoria_id = destino })
       S.recorrentes.forEach(r => { if (r.categoria_id === c.id) r.categoria_id = destino })
+      S.fiados.forEach(x => { if (x.categoria_id === c.id) x.categoria_id = destino })
     }
     await Api.excluirCategoria(c.id)
     S.categorias = S.categorias.filter(x => x.id !== c.id)

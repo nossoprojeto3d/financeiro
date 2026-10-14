@@ -39,7 +39,8 @@
       ? { tipo: 'cat', c, nome: c.nome, natureza: c.natureza, catTipo: c.tipo, excluindo: false, destino: null }
       : { tipo: 'cat', c: null, nome: '', natureza: NATUREZAS[aba][0][0], catTipo: aba }
   }
-  const usos = c => S.lancs.filter(l => l.categoria_id === c.id).length + S.recorrentes.filter(r => r.categoria_id === c.id).length
+  const usos = c => S.lancs.filter(l => l.categoria_id === c.id).length + S.recorrentes.filter(r => r.categoria_id === c.id).length +
+    S.fiados.filter(x => x.categoria_id === c.id).length
   async function salvarCat() {
     const f = folha, nome = f.nome.trim()
     if (!nome) return avisar('Dê um nome para a categoria.', 'erro')

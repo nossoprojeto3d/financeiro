@@ -1,4 +1,5 @@
 <script>
+  import { tick } from 'svelte'
   import { fly, fade } from 'svelte/transition'
   import { cubicOut } from 'svelte/easing'
   import { House, List, ChartColumn, Settings, Plus, CircleCheck, CircleAlert } from '@lucide/svelte'
@@ -22,7 +23,11 @@
   const sobreposto = $derived(!!S.lancar && !(tela.largo && S.tela === 'inicio'))
 
   function novo() {
-    if (tela.largo && S.tela === 'inicio') return document.querySelector('aside button[role=radio]')?.focus()
+    if (tela.largo && S.tela === 'inicio') {
+      // no modo fiado o painel não tem o seletor Entrada/Saída: volta ao lançamento comum
+      if (S.lancar?.fiado && !S.lancar.id) abrirLancar('entrada')
+      return tick().then(() => document.querySelector('aside button[role=radio]')?.focus())
+    }
     abrirLancar('entrada')
   }
 </script>

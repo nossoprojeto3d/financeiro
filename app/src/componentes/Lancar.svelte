@@ -1,11 +1,12 @@
 <script>
-  import { X, Trash2, CalendarDays, Wallet, User, Repeat, ChevronRight, Check, LayoutGrid } from '@lucide/svelte'
+  import { X, Trash2, CalendarDays, Wallet, User, Repeat, ChevronRight, Check, LayoutGrid, HandCoins } from '@lucide/svelte'
   import Teclado from './Teclado.svelte'
   import Folha from './Folha.svelte'
   import Dinheiro from './Dinheiro.svelte'
-  import { S, cat, perfil, categoriasDoTipo, abrirLancar, fecharLancar, salvarLanc, excluirLanc, criarCategoria, avisar, tratarErro } from '../lib/estado.svelte.js'
+  import { S, cat, perfil, categoriasDoTipo, abrirLancar, fecharLancar, salvarLanc, excluirLanc, excluirFiado, SUMIU, criarCategoria, avisar, tratarErro } from '../lib/estado.svelte.js'
   import { NATUREZAS, nomeNatureza, PAGAMENTOS } from '../lib/dados.js'
-  import { hoje, ontem, dataBonita, deISO } from '../lib/formato.js'
+  import { hoje, ontem, dataBonita, deISO, fmt } from '../lib/formato.js'
+  import { nomesUsados } from '../lib/fiados.js'
 
   // modo 'tela' = celular (tela cheia); 'painel' = computador (fixo ao lado)
   // fixo = painel do Início no computador: depois de lançar, já abre um novo em branco
@@ -31,12 +32,19 @@
   let enviando = $state(false)
   let tentarDeNovo = $state(false)
   let campoDesc = $state()
+  let campoNome = $state()
   let nova = $state(null) // nova categoria sendo criada: { nome, natureza }
 
   function tecla(t) {
     if (t === 'limpar') f.centavos = 0
     else if (t === 'apagar') f.centavos = Math.floor(f.centavos / 10)
     else if (String(f.centavos).length + t.length <= 10) f.centavos = Number(String(f.centavos) + t)
+  }
+
+  // "Ainda não recebi": vira fiado (sem repetir nem forma de pagamento)
+  function alternarFiado() {
+    f.fiado = !f.fiado
+    if (f.fiado) { f.repetir = false; f.forma_pagamento = '' }
   }
 
   function trocarTipo(tipo) {
@@ -62,19 +70,22 @@
     // toque duplo rápido: o botão só desativa na próxima atualização da tela, então trava aqui
     if (enviando) return
     if (!f.centavos) return avisar('Digite o valor.', 'erro')
+    if (f.fiado && !f.nome.trim()) { marcarFalta('nome'); campoNome?.focus(); return avisar('Escreva quem deve.', 'erro') }
     if (!f.categoria_id) { marcarFalta('cat'); return avisar('Escolha a categoria.', 'erro') }
     if (!f.descricao.trim()) { marcarFalta('desc'); campoDesc?.focus(); return avisar('Escreva a descrição.', 'erro') }
     enviando = true
-    const editando = !!f.id, tipo = f.tipo, mensal = f.repetir
+    const editando = !!f.id, tipo = f.tipo, mensal = f.repetir, fiado = f.fiado
     try {
       await salvarLanc(f)
       tentarDeNovo = false
-      avisar(editando ? 'Alterações salvas' : mensal ? 'Lançamento mensal criado' : tipo === 'entrada' ? 'Entrada lançada' : 'Saída lançada')
+      avisar(editando ? 'Alterações salvas' : fiado ? 'Fiado anotado' : mensal ? 'Lançamento mensal criado' : tipo === 'entrada' ? 'Entrada lançada' : 'Saída lançada')
       if (fixo) abrirLancar(editando ? 'entrada' : tipo)
       else fecharLancar()
     } catch (e) {
-      tentarDeNovo = true
+      // fiado que já foi recebido ou excluído em outro celular: não adianta tentar de novo
+      tentarDeNovo = e.message !== SUMIU
       tratarErro(e)
+      if (e.message === SUMIU) cancelar()
     } finally {
       enviando = false
     }
@@ -84,11 +95,15 @@
     if (enviando) return
     enviando = true
     try {
-      await excluirLanc(f.id)
+      const fiado = f.fiado
+      await (fiado ? excluirFiado(f.id) : excluirLanc(f.id))
       folha = null
-      avisar('Lançamento excluído')
+      avisar(fiado ? 'Fiado excluído' : 'Lançamento excluído')
       cancelar()
-    } catch (e) { tratarErro(e) }
+    } catch (e) {
+      tratarErro(e)
+      if (e.message === SUMIU) { folha = null; cancelar() }
+    }
     finally { enviando = false }
   }
 
@@ -120,12 +135,15 @@
   <div class="flex h-full flex-col {modo === 'tela' ? 'pt-seguro' : ''}">
     <!-- Topo -->
     <div class="flex items-center gap-2 px-4 pt-3 {modo === 'painel' ? 'px-5 pt-5' : ''}">
-      {#if !fixo || f.id}
+      {#if !fixo || f.id || f.fiado}
         <button class="grid size-10 shrink-0 place-items-center rounded-full text-txt-2 hover:bg-sup-2" aria-label="Fechar" onclick={cancelar}><X size={22} /></button>
       {/if}
       {#if f.id}
-        <p class="flex-1 text-[15px] font-medium text-txt-2">Editando {f.tipo === 'entrada' ? 'entrada' : 'saída'}</p>
-        <button class="grid size-10 shrink-0 place-items-center rounded-full text-txt-3 hover:bg-sai-fundo hover:text-sai" aria-label="Excluir lançamento" onclick={() => (folha = 'excluir')}><Trash2 size={19} /></button>
+        <p class="flex-1 text-[15px] font-medium text-txt-2">Editando {f.fiado ? 'fiado' : f.tipo === 'entrada' ? 'entrada' : 'saída'}</p>
+        <button class="grid size-10 shrink-0 place-items-center rounded-full text-txt-3 hover:bg-sai-fundo hover:text-sai" aria-label={f.fiado ? 'Excluir fiado' : 'Excluir lançamento'} onclick={() => (folha = 'excluir')}><Trash2 size={19} /></button>
+      {:else if f.fiado}
+        <p class="flex-1 text-center text-[15px] font-semibold text-ent">Novo fiado</p>
+        <span class="size-10 shrink-0"></span>
       {:else}
         <div class="relative mx-auto grid w-full max-w-[260px] grid-cols-2 rounded-full bg-sup-2 p-1 " role="radiogroup" aria-label="Tipo">
           <span class="absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-full transition-transform duration-300 ease-mola {f.tipo === 'saida' ? 'translate-x-full bg-sai-fundo' : 'bg-ent-fundo'}"></span>
@@ -148,6 +166,22 @@
     </div>
 
     <div class="space-y-3 px-4 {modo === 'painel' ? 'px-5' : ''}">
+      {#if f.fiado}
+        <input
+          bind:this={campoNome}
+          bind:value={f.nome}
+          onkeydown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+          list="nomes-fiado"
+          maxlength="60"
+          enterkeyhint="done"
+          autocomplete="off"
+          autocapitalize="words"
+          aria-label="Quem deve"
+          class="h-12 w-full rounded-2xl border bg-transparent px-4 text-[16px] text-txt placeholder:text-txt-3 focus:border-sup-3 focus:outline-none {falta === 'nome' ? 'animate-[tremer_.4s] border-sai' : 'border-linha'}"
+          placeholder="Quem deve · ex.: Ana da padaria"
+        />
+        <datalist id="nomes-fiado">{#each nomesUsados(S.fiados) as n}<option value={n}></option>{/each}</datalist>
+      {/if}
       <!-- Categoria -->
       <div class="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] {falta === 'cat' ? 'animate-[tremer_.4s]' : ''} {modo === 'painel' ? 'flex-wrap overflow-visible' : ''}">
         {#each rapidas as k (k.id)}
@@ -171,16 +205,17 @@
         maxlength="120"
         enterkeyhint="done"
         class="h-12 w-full rounded-2xl border bg-transparent px-4 text-[16px] text-txt placeholder:text-txt-3 focus:border-sup-3 focus:outline-none {falta === 'desc' ? 'animate-[tremer_.4s] border-sai' : 'border-linha'}"
-        placeholder={f.tipo === 'entrada' ? 'Descrição · ex.: pedido Shopee #1234' : 'Descrição · ex.: 3 rolos PLA preto'}
+        placeholder={f.fiado ? 'O que levou · ex.: 2 vasos geométricos' : f.tipo === 'entrada' ? 'Descrição · ex.: pedido Shopee #1234' : 'Descrição · ex.: 3 rolos PLA preto'}
       />
 
       <!-- Detalhes em uma linha: cada um mostra o que está valendo -->
       <!-- (numa linha só: o que não couber some com reticências, e "Detalhes" vira só a seta) -->
       <button class="flex min-h-11 w-full items-center gap-3 overflow-hidden rounded-2xl px-1 text-left text-[13px] whitespace-nowrap text-txt-2" onclick={() => (folha = 'detalhes')}>
         <span class="flex shrink-0 items-center gap-1.5"><CalendarDays size={15} class="text-txt-3" />{resumoData}</span>
-        {#if f.forma_pagamento}<span class="flex min-w-0 items-center gap-1.5"><Wallet size={15} class="shrink-0 text-txt-3" /><span class="truncate">{f.forma_pagamento}</span></span>{/if}
+        {#if f.fiado}<span class="flex min-w-0 items-center gap-1.5"><HandCoins size={15} class="shrink-0 text-txt-3" /><span class="truncate">Fiado{f.nome.trim() ? ` · ${f.nome.trim()}` : ''}</span></span>
+        {:else if f.forma_pagamento}<span class="flex min-w-0 items-center gap-1.5"><Wallet size={15} class="shrink-0 text-txt-3" /><span class="truncate">{f.forma_pagamento}</span></span>{/if}
         {#if f.usuario_id !== S.perfil.id}<span class="flex shrink-0 items-center gap-1.5"><User size={15} class="text-txt-3" />{perfil(f.usuario_id)?.nome}</span>{/if}
-        <span class="ml-auto flex shrink-0 items-center text-txt-3">{#if !f.forma_pagamento && f.usuario_id === S.perfil.id}Detalhes{/if}<ChevronRight size={16} /></span>
+        <span class="ml-auto flex shrink-0 items-center text-txt-3">{#if !f.forma_pagamento && !f.fiado && f.usuario_id === S.perfil.id}Detalhes{/if}<ChevronRight size={16} /></span>
       </button>
     </div>
 
@@ -197,7 +232,7 @@
         {#if enviando}<span class="size-5 animate-spin rounded-full border-2 border-fundo/30 border-t-fundo"></span>
         {:else if tentarDeNovo}Tentar de novo
         {:else if f.id}<Check size={20} />Salvar alterações
-        {:else}{f.repetir ? 'Criar lançamento mensal' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}{/if}
+        {:else}{f.fiado ? 'Anotar fiado' : f.repetir ? 'Criar lançamento mensal' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}{/if}
       </button>
     </div>
   </div>
@@ -249,7 +284,15 @@
           class="h-10 min-w-0 flex-1 rounded-full border px-3 text-[16px] [color-scheme:dark] {f.data !== hoje() && f.data !== ontem() ? 'border-transparent bg-txt text-fundo' : 'border-linha bg-transparent text-txt-2'}" />
       </div>
 
-      {#if !f.id}
+      {#if !f.id && f.tipo === 'entrada' && S.temFiados}
+        <button class="mt-5 flex w-full items-center gap-3 rounded-2xl bg-sup-2/50 p-4 text-left" aria-pressed={f.fiado} onclick={alternarFiado}>
+          <HandCoins size={18} class="text-txt-3" />
+          <span class="flex-1"><span class="block text-[15px]">Ainda não recebi</span><span class="text-[13px] text-txt-3">{f.fiado ? 'Fica anotado em A receber' : 'Para quem vai pagar depois'}</span></span>
+          <span class="relative h-7 w-12 rounded-full transition-colors {f.fiado ? 'bg-ambar' : 'bg-sup-3'}"><span class="absolute top-1 left-1 size-5 rounded-full bg-white transition-transform {f.fiado ? 'translate-x-5' : ''}"></span></span>
+        </button>
+      {/if}
+
+      {#if !f.id && !f.fiado}
         <button class="mt-5 flex w-full items-center gap-3 rounded-2xl bg-sup-2/50 p-4 text-left" aria-pressed={f.repetir} onclick={() => (f.repetir = !f.repetir)}>
           <Repeat size={18} class="text-txt-3" />
           <span class="flex-1"><span class="block text-[15px]">Repetir todo mês</span><span class="text-[13px] text-txt-3">{f.repetir ? `Lança sozinho todo dia ${deISO(f.data).getDate()}` : 'Para assinaturas e contas do mês'}</span></span>
@@ -257,12 +300,14 @@
         </button>
       {/if}
 
-      <p class="mt-5 mb-2 text-[13px] text-txt-3">Forma de pagamento</p>
-      <div class="flex flex-wrap gap-2">
-        {#each PAGAMENTOS as p}
-          <button class="h-10 rounded-full px-4 text-[14px] font-medium {f.forma_pagamento === p ? 'bg-txt text-fundo' : 'border border-linha text-txt-2'}" onclick={() => (f.forma_pagamento = f.forma_pagamento === p ? '' : p)}>{p}</button>
-        {/each}
-      </div>
+      {#if !f.fiado}
+        <p class="mt-5 mb-2 text-[13px] text-txt-3">Forma de pagamento</p>
+        <div class="flex flex-wrap gap-2">
+          {#each PAGAMENTOS as p}
+            <button class="h-10 rounded-full px-4 text-[14px] font-medium {f.forma_pagamento === p ? 'bg-txt text-fundo' : 'border border-linha text-txt-2'}" onclick={() => (f.forma_pagamento = f.forma_pagamento === p ? '' : p)}>{p}</button>
+          {/each}
+        </div>
+      {/if}
 
       <p class="mt-5 mb-2 text-[13px] text-txt-3">Quem fez</p>
       <div class="flex gap-2">
@@ -280,8 +325,8 @@
   {/if}
 
   {#if folha === 'excluir'}
-    <Folha titulo="Excluir lançamento?" aoFechar={() => (folha = null)}>
-      <p class="text-[15px] text-txt-2">O valor sai do caixa e não dá para desfazer.</p>
+    <Folha titulo={f.fiado ? 'Excluir fiado?' : 'Excluir lançamento?'} aoFechar={() => (folha = null)}>
+      <p class="text-[15px] text-txt-2">{f.fiado ? `O fiado de ${f.nome.trim()} (${fmt(f.centavos / 100)}) sai da lista e não dá para desfazer.` : 'O valor sai do caixa e não dá para desfazer.'}</p>
       <div class="mt-5 grid grid-cols-2 gap-2">
         <button class="h-12 rounded-2xl bg-sup-3 text-[15px] font-semibold" onclick={() => (folha = null)}>Cancelar</button>
         <button class="h-12 rounded-2xl bg-sai text-[15px] font-semibold text-fundo disabled:opacity-60" disabled={enviando} onclick={excluir}>{enviando ? 'Excluindo…' : 'Excluir'}</button>
