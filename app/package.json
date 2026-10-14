@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "demo": "vite --mode demo",
     "build": "rm -rf ../assets && vite build",
     "preview": "vite preview",
     "test": "vitest run"
