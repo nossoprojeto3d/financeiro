@@ -3,7 +3,7 @@
   import Teclado from './Teclado.svelte'
   import Folha from './Folha.svelte'
   import Dinheiro from './Dinheiro.svelte'
-  import { S, cat, perfil, categoriasDoTipo, abrirLancar, fecharLancar, salvarLanc, excluirLanc, excluirFiado, criarCategoria, avisar, tratarErro } from '../lib/estado.svelte.js'
+  import { S, cat, perfil, categoriasDoTipo, abrirLancar, fecharLancar, salvarLanc, excluirLanc, excluirFiado, SUMIU, criarCategoria, avisar, tratarErro } from '../lib/estado.svelte.js'
   import { NATUREZAS, nomeNatureza, PAGAMENTOS } from '../lib/dados.js'
   import { hoje, ontem, dataBonita, deISO, fmt } from '../lib/formato.js'
   import { nomesUsados } from '../lib/fiados.js'
@@ -82,8 +82,10 @@
       if (fixo) abrirLancar(editando ? 'entrada' : tipo)
       else fecharLancar()
     } catch (e) {
-      tentarDeNovo = true
+      // fiado que já foi recebido ou excluído em outro celular: não adianta tentar de novo
+      tentarDeNovo = e.message !== SUMIU
       tratarErro(e)
+      if (e.message === SUMIU) cancelar()
     } finally {
       enviando = false
     }
@@ -98,7 +100,10 @@
       folha = null
       avisar(fiado ? 'Fiado excluído' : 'Lançamento excluído')
       cancelar()
-    } catch (e) { tratarErro(e) }
+    } catch (e) {
+      tratarErro(e)
+      if (e.message === SUMIU) { folha = null; cancelar() }
+    }
     finally { enviando = false }
   }
 

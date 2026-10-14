@@ -365,18 +365,21 @@ export async function excluirLanc(id) {
 }
 
 /* ---------- Fiados ---------- */
-const SUMIU = 'Esse fiado já foi recebido ou excluído.'
+export const SUMIU = 'Esse fiado já foi recebido ou excluído.'
+// Recebido ou excluído em outro celular: tira da lista e traz o que está no banco (a venda, se virou venda)
+function fiadoSumiu(id) {
+  S.fiados = S.fiados.filter(x => x.id !== id)
+  guardarCache()
+  carregarTudo().catch(() => {})
+  return new Error(SUMIU)
+}
 
 async function salvarFiado(f) {
   const dados = { nome: f.nome.trim(), valor: f.centavos / 100, categoria_id: f.categoria_id,
     descricao: f.descricao.trim(), data: f.data, usuario_id: f.usuario_id }
   if (f.id) {
     const r = await Api.editarFiado(f.id, dados)
-    if (!r) {
-      S.fiados = S.fiados.filter(x => x.id !== f.id)
-      guardarCache()
-      throw new Error(SUMIU)
-    }
+    if (!r) throw fiadoSumiu(f.id)
     const i = S.fiados.findIndex(x => x.id === f.id)
     if (i >= 0) S.fiados[i] = numerico(r); else S.fiados.push(numerico(r))
   } else {
@@ -387,7 +390,8 @@ async function salvarFiado(f) {
 }
 
 export async function excluirFiado(id) {
-  await Api.excluirFiado(id)
+  const r = await Api.excluirFiado(id)
+  if (!r?.length) throw fiadoSumiu(id)
   S.fiados = S.fiados.filter(x => x.id !== id)
   guardarCache()
 }

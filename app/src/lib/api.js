@@ -177,7 +177,8 @@ export const Api = (() => {
     fiados: () => todos('fiados?select=*&order=data.asc,id.asc'),
     criarFiado: d => rest('fiados', { method: 'POST', body: d, ...volta }).then(r => r[0]),
     editarFiado: (id, d) => rest(`fiados?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
-    excluirFiado: id => rest(`fiados?id=eq.${id}`, { method: 'DELETE' }),
+    // devolve o que apagou: vazio quando o fiado já tinha sido recebido ou excluído em outro celular
+    excluirFiado: id => rest(`fiados?id=eq.${id}`, { method: 'DELETE', ...volta }),
     // Apaga o fiado e cria a venda no mesmo passo (função receber_fiado do banco)
     receberFiado: (id, forma, data) => rest('rpc/receber_fiado', { method: 'POST', body: { p_id: id, p_forma: forma, p_data: data } })
       .then(r => (Array.isArray(r) ? r[0] : r)),
