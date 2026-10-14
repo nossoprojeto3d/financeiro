@@ -1,5 +1,5 @@
 <script>
-  import { X, Trash2, CalendarDays, Wallet, User, Repeat, ChevronRight, Check, LayoutGrid, HandCoins } from '@lucide/svelte'
+  import { X, Trash2, CalendarDays, Wallet, User, Repeat, ChevronRight, ChevronDown, Check, LayoutGrid, HandCoins } from '@lucide/svelte'
   import Teclado from './Teclado.svelte'
   import Folha from './Folha.svelte'
   import Dinheiro from './Dinheiro.svelte'
@@ -18,14 +18,6 @@
   const f = $derived(S.lancar)
   const c = $derived(f ? cat(f.categoria_id) : null)
   const cats = $derived(f ? categoriasDoTipo(f.tipo) : [])
-  const rapidas = $derived.by(() => {
-    const top = cats.slice(0, modo === 'painel' ? 3 : 5)
-    // a categoria escolhida pela lista completa também aparece na fila
-    // (compara pelo id: a lista vem do estado reativo e o objeto da categoria não é o mesmo)
-    const escolhida = cats.find(k => k.id === f.categoria_id)
-    if (escolhida && !top.some(k => k.id === escolhida.id)) top.unshift(escolhida)
-    return top
-  })
 
   let folha = $state(null) // 'cats' | 'detalhes' | 'excluir'
   let falta = $state(null) // campo que falta preencher: 'cat' | 'desc' (treme)
@@ -183,27 +175,20 @@
         />
         <datalist id="nomes-fiado">{#each nomesUsados(S.fiados) as n}<option value={n}></option>{/each}</datalist>
       {/if}
-      <!-- Categoria: numa linha só que rola de lado (no computador, "Todas" fica sempre à vista na ponta) -->
-      {#snippet todas()}
-        <button class="flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-sup-3 px-3.5 text-[14px] text-txt-2" onclick={() => (folha = 'cats')}>
-          <LayoutGrid size={15} /> Todas
-        </button>
-      {/snippet}
-      <div class="flex items-center gap-2 {falta === 'cat' ? 'animate-[tremer_.4s]' : ''}">
-        <div class="flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none] {modo === 'painel' ? '[mask-image:linear-gradient(to_right,#000_85%,transparent)] pr-6' : '-mx-4 px-4'}">
-          {#each rapidas as k (k.id)}
-            {@const on = f.categoria_id === k.id}
-            <button
-              class="flex h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[14px] font-medium transition-colors {on ? 'border-transparent bg-txt text-fundo' : 'border-linha text-txt-2 hover:border-sup-3'}"
-              onclick={() => (f.categoria_id = on ? null : k.id)}
-            >
-              <span class="size-2.5 rounded-full ring-2 ring-black/20" style="background:{k.cor}"></span>{k.nome}
-            </button>
-          {/each}
-          {#if modo !== 'painel'}{@render todas()}{/if}
-        </div>
-        {#if modo === 'painel'}{@render todas()}{/if}
-      </div>
+      <!-- Categoria: um campo só; tocar abre a lista completa, separada por tipo -->
+      <button
+        class="flex h-12 w-full items-center gap-3 rounded-2xl border px-4 text-left text-[16px] transition-colors hover:border-sup-3 {falta === 'cat' ? 'animate-[tremer_.4s] border-sai' : 'border-linha'}"
+        onclick={() => (folha = 'cats')}
+      >
+        {#if c}
+          <span class="size-3 shrink-0 rounded-full ring-2 ring-black/20" style="background:{c.cor}"></span>
+          <span class="min-w-0 flex-1 truncate text-txt">{c.nome}</span>
+        {:else}
+          <LayoutGrid size={17} class="shrink-0 text-txt-3" />
+          <span class="flex-1 text-txt-3">Escolher categoria</span>
+        {/if}
+        <ChevronDown size={18} class="shrink-0 text-txt-3" />
+      </button>
 
       <input
         bind:this={campoDesc}
