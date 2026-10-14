@@ -6,9 +6,8 @@ import { defineConfig } from 'vite'
 // para ver e testar sem tocar no Supabase. Só existe no `vite --mode demo`.
 const demo = {
   name: 'demo',
-  transformIndexHtml: html => html.replace(
-    '<script type="module" src="/src/main.js">',
-    '<script type="module" src="/src/demo/bancoFalso.js"></script>\n    <script type="module" src="/src/main.js">'),
+  // no começo do <head>: roda antes do app (que fica no fim da página)
+  transformIndexHtml: () => [{ tag: 'script', attrs: { type: 'module', src: '/src/demo/bancoFalso.js' }, injectTo: 'head-prepend' }],
 }
 
 // O GitHub Pages publica a main direto da raiz: o build vai para a pasta de cima

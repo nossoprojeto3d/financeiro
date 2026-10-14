@@ -1,5 +1,5 @@
 <script>
-  // Fiados no Início: a linha "A receber", o painel com a lista e o "Recebeu"
+  // Fiados no Início: o cartão "A receber", o painel com a lista completa e o "Recebeu"
   import { ChevronRight, Plus } from '@lucide/svelte'
   import Folha from './Folha.svelte'
   import Dinheiro from './Dinheiro.svelte'
@@ -11,19 +11,19 @@
   const total = $derived(soma(S.fiados))
   const n = $derived(pessoas(S.fiados))
 
+  // no cartão, os 3 que devem há mais tempo (a lista já vem do mais antigo para o mais novo)
+  const primeiros = $derived(S.fiados.slice(0, 3))
+
   let folha = $state(null) // 'lista' | 'receber'
+  let veioDaLista = false // o "Recebeu" volta para onde foi aberto
   let rc = $state(null) // fiado sendo recebido
   let forma = $state('')
   let data = $state(hoje())
   let enviando = $state(false)
 
-  function linha() {
-    if (S.fiados.length) folha = 'lista'
-    else abrirFiado()
-  }
   function anotar() { folha = null; abrirFiado() }
   function editar(fz) { folha = null; abrirFiado(fz) }
-  function pedirReceber(fz) { rc = fz; forma = ''; data = hoje(); folha = 'receber' }
+  function pedirReceber(fz) { veioDaLista = folha === 'lista'; rc = fz; forma = ''; data = hoje(); folha = 'receber' }
   // recebido ou excluído em outro celular: quando a lista recarrega sem ele, o painel fecha
   $effect(() => { if (folha === 'receber' && rc && !S.fiados.some(x => x.id === rc.id)) folha = null })
 
@@ -45,38 +45,54 @@
   }
 </script>
 
-<button class="-my-2 flex min-h-11 w-full items-center gap-1.5 rounded-2xl px-1 text-left text-[13px]" onclick={linha}>
-  {#if S.fiados.length}
-    <span class="text-txt-2">A receber</span>
-    <span class="text-txt-3">·</span>
-    <Dinheiro valor={total} class="text-[15px] font-semibold text-txt" />
-    <span class="text-txt-3">· {n} {n === 1 ? 'pessoa' : 'pessoas'}</span>
-  {:else}
-    <span class="text-txt-3">Anotar fiado</span>
-  {/if}
-  <ChevronRight size={16} class="ml-auto text-txt-3" />
-</button>
+{#snippet item(fz)}
+  <div class="flex items-center gap-3 py-2.5 not-last:border-b not-last:border-linha/60">
+    <button class="min-w-0 flex-1 py-1 text-left" onclick={() => editar(fz)}>
+      <span class="block truncate text-[15px] text-txt">{fz.nome}</span>
+      <span class="block truncate text-[13px] text-txt-3">{haQuanto(fz.data, hoje())} · {fz.descricao}</span>
+    </button>
+    <Dinheiro valor={fz.valor} moeda={false} class="text-[16px] font-semibold" />
+    <button class="h-10 shrink-0 rounded-full bg-ent-fundo px-3.5 text-[14px] font-semibold text-ent" onclick={() => pedirReceber(fz)}>Recebeu</button>
+  </div>
+{/snippet}
+
+{#if S.fiados.length}
+  <section class="rounded-[28px] border border-linha bg-sup px-5 pt-5 pb-3" aria-label="A receber">
+    <div class="flex items-end justify-between gap-3">
+      <div>
+        <p class="text-[13px] text-txt-2">A receber</p>
+        <p class="text-[13px] text-txt-3">{n} {n === 1 ? 'pessoa te deve' : 'pessoas te devem'}</p>
+      </div>
+      <Dinheiro valor={total} class="text-[22px] font-semibold" />
+    </div>
+    <div class="mt-2">
+      {#each primeiros as fz (fz.id)}{@render item(fz)}{/each}
+    </div>
+    <div class="-mx-2 mt-1 flex items-center justify-between">
+      <button class="flex h-10 items-center gap-1.5 rounded-full px-2 text-[14px] text-txt-2" onclick={anotar}><Plus size={16} /> Anotar fiado</button>
+      {#if S.fiados.length > 3}
+        <button class="flex h-10 items-center rounded-full px-2 text-[14px] text-txt-2" onclick={() => (folha = 'lista')}>Ver todos ({S.fiados.length})<ChevronRight size={16} /></button>
+      {/if}
+    </div>
+  </section>
+{:else}
+  <section class="flex items-center justify-between gap-3 rounded-[22px] border border-linha bg-sup py-2 pr-2 pl-5" aria-label="A receber">
+    <p class="text-[14px] text-txt-3">Ninguém te deve 🎉</p>
+    <button class="flex h-10 items-center gap-1.5 rounded-full px-3 text-[14px] text-txt-2" onclick={anotar}><Plus size={16} /> Anotar fiado</button>
+  </section>
+{/if}
 
 {#if folha === 'lista'}
   <Folha titulo="A receber" aoFechar={() => (folha = null)}>
     <button class="mb-2 flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-sup-3 text-[15px] text-txt-2" onclick={anotar}>
       <Plus size={17} /> Anotar fiado
     </button>
-    {#each S.fiados as fz (fz.id)}
-      <div class="flex items-center gap-3 py-2.5 not-last:border-b not-last:border-linha/60">
-        <button class="min-w-0 flex-1 py-1 text-left" onclick={() => editar(fz)}>
-          <span class="block truncate text-[15px] text-txt">{fz.nome}</span>
-          <span class="block truncate text-[13px] text-txt-3">{fz.descricao} · {haQuanto(fz.data, hoje())}</span>
-        </button>
-        <Dinheiro valor={fz.valor} moeda={false} class="text-[16px] font-semibold" />
-        <button class="h-10 shrink-0 rounded-full bg-ent-fundo px-3.5 text-[14px] font-semibold text-ent" onclick={() => pedirReceber(fz)}>Recebeu</button>
-      </div>
-    {/each}
+    {#each S.fiados as fz (fz.id)}{@render item(fz)}{/each}
   </Folha>
 {/if}
 
 {#if folha === 'receber' && rc}
-  <Folha titulo="{rc.nome} pagou {fmt(rc.valor)}" aoFechar={() => (folha = 'lista')}>
+  <Folha titulo="{rc.nome} pagou {fmt(rc.valor)}" aoFechar={() => (folha = veioDaLista ? 'lista' : null)}>
     <p class="mb-2 text-[13px] text-txt-3">Forma de pagamento</p>
     <div class="flex flex-wrap gap-2">
       {#each PAGAMENTOS as p}

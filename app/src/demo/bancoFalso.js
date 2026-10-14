@@ -42,6 +42,8 @@ function bancoInicial() {
     { id: 1, nome: 'Ana da padaria', valor: 80, categoria_id: 2, descricao: '2 vasos geométricos', data: diasAtras(12), usuario_id: THAI },
     { id: 2, nome: 'João', valor: 150, categoria_id: 3, descricao: 'Luminária lua', data: diasAtras(3), usuario_id: EU },
     { id: 3, nome: 'Tia Marta', valor: 35.5, categoria_id: 2, descricao: 'Chaveiro com nome', data: diasAtras(0), usuario_id: EU },
+    { id: 4, nome: 'Carlos (vizinho)', valor: 60, categoria_id: 3, descricao: 'Suporte de headset', data: diasAtras(1), usuario_id: THAI },
+    { id: 5, nome: 'Bia', valor: 25, categoria_id: 2, descricao: 'Brincos geométricos', data: diasAtras(0), usuario_id: THAI },
   ].map(f => ({ ...f, atualizado_em: 't0' }))
   return {
     seq: 1000,
@@ -68,6 +70,7 @@ const resp = (corpo, status = 200) => new Response(corpo == null ? null : JSON.s
 const erro = (message, status = 400) => resp({ message }, status)
 const espera = () => new Promise(ok => setTimeout(ok, 250)) // parece rede de verdade
 
+window.__bancoFalso = true
 const real = window.fetch.bind(window)
 window.fetch = async (url, op = {}) => {
   url = String(url)
