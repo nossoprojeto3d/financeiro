@@ -132,8 +132,8 @@
 <svelte:window onkeydown={teclaFisica} />
 
 {#if f}
-  <!-- no painel do computador: cresce com o conteúdo (o painel rola) e o botão fica preso embaixo -->
-  <div class="flex flex-col {modo === 'tela' ? 'h-full pt-seguro' : 'min-h-full'}">
+  <!-- no painel do computador: o teclado se ajusta à altura; se nem assim couber, o painel rola e o botão fica preso embaixo -->
+  <div class="flex flex-col {modo === 'tela' ? 'h-full pt-seguro' : 'h-full min-h-min'}">
     <!-- Topo -->
     <div class="flex items-center gap-2 px-4 pt-3 {modo === 'painel' ? 'px-5 pt-5' : ''}">
       {#if !fixo || f.id || f.fiado}
@@ -157,7 +157,7 @@
     </div>
 
     <!-- Valor -->
-    <div class="flex flex-1 flex-col items-center justify-center px-5 py-3" aria-live="polite">
+    <div class="flex flex-1 flex-col items-center justify-center px-5 {modo === 'painel' ? 'min-h-[96px] py-2' : 'py-3'}" aria-live="polite">
       <div class="transition-colors {f.centavos ? corTipo : 'text-txt-3'}">
         <Dinheiro valor={f.centavos / 100} class="text-[clamp(44px,12vw,60px)] leading-none font-semibold" />
       </div>
@@ -183,20 +183,26 @@
         />
         <datalist id="nomes-fiado">{#each nomesUsados(S.fiados) as n}<option value={n}></option>{/each}</datalist>
       {/if}
-      <!-- Categoria -->
-      <div class="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] {falta === 'cat' ? 'animate-[tremer_.4s]' : ''} {modo === 'painel' ? 'flex-wrap overflow-visible' : ''}">
-        {#each rapidas as k (k.id)}
-          {@const on = f.categoria_id === k.id}
-          <button
-            class="flex h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[14px] font-medium transition-colors {on ? 'border-transparent bg-txt text-fundo' : 'border-linha text-txt-2 hover:border-sup-3'}"
-            onclick={() => (f.categoria_id = on ? null : k.id)}
-          >
-            <span class="size-2.5 rounded-full ring-2 ring-black/20" style="background:{k.cor}"></span>{k.nome}
-          </button>
-        {/each}
+      <!-- Categoria: numa linha só que rola de lado (no computador, "Todas" fica sempre à vista na ponta) -->
+      {#snippet todas()}
         <button class="flex h-10 shrink-0 items-center gap-1.5 rounded-full border border-dashed border-sup-3 px-3.5 text-[14px] text-txt-2" onclick={() => (folha = 'cats')}>
           <LayoutGrid size={15} /> Todas
         </button>
+      {/snippet}
+      <div class="flex items-center gap-2 {falta === 'cat' ? 'animate-[tremer_.4s]' : ''}">
+        <div class="flex min-w-0 flex-1 gap-2 overflow-x-auto [scrollbar-width:none] {modo === 'painel' ? '[mask-image:linear-gradient(to_right,#000_85%,transparent)] pr-6' : '-mx-4 px-4'}">
+          {#each rapidas as k (k.id)}
+            {@const on = f.categoria_id === k.id}
+            <button
+              class="flex h-10 shrink-0 items-center gap-2 rounded-full border px-3.5 text-[14px] font-medium transition-colors {on ? 'border-transparent bg-txt text-fundo' : 'border-linha text-txt-2 hover:border-sup-3'}"
+              onclick={() => (f.categoria_id = on ? null : k.id)}
+            >
+              <span class="size-2.5 rounded-full ring-2 ring-black/20" style="background:{k.cor}"></span>{k.nome}
+            </button>
+          {/each}
+          {#if modo !== 'painel'}{@render todas()}{/if}
+        </div>
+        {#if modo === 'painel'}{@render todas()}{/if}
       </div>
 
       <input
@@ -220,8 +226,9 @@
       </button>
     </div>
 
-    <div class="px-3 pt-3 {modo === 'painel' ? 'px-5' : ''}">
-      <Teclado aoTocar={tecla} compacto={modo === 'painel'} />
+    <!-- painel: teclas entre 36 e 56 px de altura, conforme o espaço -->
+    <div class="px-3 pt-3 {modo === 'painel' ? 'flex max-h-[245px] min-h-[165px] flex-[2] flex-col px-5' : ''}">
+      <Teclado aoTocar={tecla} elastico={modo === 'painel'} />
     </div>
 
     <div class="px-4 pt-3 pb-[max(16px,env(safe-area-inset-bottom))] {modo === 'painel' ? 'sticky bottom-0 z-10 bg-sup px-5 pb-5' : ''}">
