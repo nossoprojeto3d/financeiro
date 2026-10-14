@@ -21,8 +21,8 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - **Modo demonstração:** `cd app && npm run demo` abre o app em `http://localhost:5173/` com dados de exemplo e um banco de mentira (`app/src/demo/bancoFalso.js`), sem tocar no Supabase. Os dados ficam no navegador; `?zerar` no endereço recomeça. Só existe no `vite --mode demo`: o build publicado não inclui.
 - `app/index.html`: casca da página e a regra de segurança (CSP).
 - `app/src/App.svelte`: navegação (barra inferior com o + no celular, menu lateral no computador), lançamento por cima, confirmação, avisos.
-- `app/src/telas/`: `Porta` (login, trava, carregando), `Inicio`, `Historico`, `Gestao`, `Ajustes`.
-- `app/src/componentes/`: `Lancar` (formulário com teclado numérico; tela cheia no celular, fixo ao lado no Início do computador), `Teclado`, `Folha` (painel que sobe de baixo), `CartaoMes` + `Vaso`, `GraficoMeses`, `ItemLanc`, `Dinheiro`, `Fiados` (cartão "A receber" do Início com os 3 mais antigos, lista completa e "Recebeu").
+- `app/src/telas/`: `Porta` (login, trava, carregando), `Inicio`, `Historico`, `Gestao`, `Ajustes`, `AReceber` (lista de fiados com o "Recebeu", aberta pelo cartão do Início).
+- `app/src/componentes/`: `Lancar` (formulário com teclado numérico; tela cheia no celular, fixo ao lado no Início do computador), `Teclado`, `Folha` (painel que sobe de baixo), `CartaoMes` + `Vaso`, `GraficoMeses`, `ItemLanc`, `Dinheiro`, `Fiados` (cartão "A receber" do Início, só com o total).
 - `app/src/lib/config.js`: URL e chave pública do Supabase e e-mails dos dois usuários. A chave pública pode ficar no repositório; a `service_role` / `secret` nunca.
 - `app/src/lib/api.js`: login, renovação de sessão e chamadas ao banco (objeto `Api`).
 - `app/src/lib/lock.js`: trava com Face ID via WebAuthn (objeto `Lock`). É trava local do aparelho; a segurança real é o login + RLS.
@@ -47,7 +47,7 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 ## Comportamentos importantes
 - O app abre na hora com os últimos dados guardados no celular (`caixa_cache`) e atualiza por trás; só busca antes de mostrar logo depois de entrar com a senha. Atualiza sozinho a cada 30 s com o app aberto e na hora em que volta para a tela, sem interromper um formulário aberto.
 - **Lançar (desde a 4.0):** o Início é um painel (saldo, vendas do mês contra a meta mínima, atalhos de Entrada/Saída e últimos lançamentos). O lançamento abre pelo + da barra inferior (tela cheia) ou pelos atalhos; no computador fica fixo à direita do Início e aceita os números do teclado físico. O valor é sempre digitado no teclado numérico do próprio app (o do iPhone cobria o botão). Valor, categoria e descrição são obrigatórios; data, repetir, pagamento e quem fez ficam em "Detalhes". Tocar num lançamento abre a edição.
-- **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" no cartão "A receber" do Início. O pagamento é sempre do valor todo; pagamento parcial = editar o valor. A Venda criada leva "Nome · o que levou" na descrição.
+- **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" na tela "A receber" (o cartão do Início leva até ela). O pagamento é sempre do valor todo; pagamento parcial = editar o valor. A Venda criada leva "Nome · o que levou" na descrição.
 - **Meta mínima:** sempre pela média dos últimos 3 meses, igual no Início e na Gestão.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.

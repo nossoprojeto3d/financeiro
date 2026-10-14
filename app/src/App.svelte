@@ -7,6 +7,7 @@
   import Historico from './telas/Historico.svelte'
   import Gestao from './telas/Gestao.svelte'
   import Ajustes from './telas/Ajustes.svelte'
+  import AReceber from './telas/AReceber.svelte'
   import Lancar from './componentes/Lancar.svelte'
   import Folha from './componentes/Folha.svelte'
   import Porta from './telas/Porta.svelte'
@@ -15,7 +16,7 @@
 
   iniciar()
 
-  const TELAS = { inicio: Inicio, historico: Historico, gestao: Gestao, ajustes: Ajustes }
+  const TELAS = { inicio: Inicio, historico: Historico, gestao: Gestao, ajustes: Ajustes, receber: AReceber }
   const NAV = [['inicio', 'Início', House], ['historico', 'Histórico', List], ['gestao', 'Gestão', ChartColumn], ['ajustes', 'Ajustes', Settings]]
   const Tela = $derived(TELAS[S.tela])
 
