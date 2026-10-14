@@ -1,6 +1,7 @@
 <script>
   import { ArrowDownLeft, ArrowUpRight, ChevronRight } from '@lucide/svelte'
   import CartaoMes from '../componentes/CartaoMes.svelte'
+  import Fiados from '../componentes/Fiados.svelte'
   import ItemLanc from '../componentes/ItemLanc.svelte'
   import GraficoMeses from '../componentes/GraficoMeses.svelte'
   import Lancar from '../componentes/Lancar.svelte'
@@ -26,6 +27,8 @@
     </header>
 
     <CartaoMes grande={tela.largo} />
+
+    {#if S.temFiados}<Fiados />{/if}
 
     <!-- Atalhos: já abrem o lançamento no tipo certo -->
     <div class="grid grid-cols-2 gap-3 lg:hidden">
