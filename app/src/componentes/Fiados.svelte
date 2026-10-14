@@ -24,6 +24,8 @@
   function anotar() { folha = null; abrirFiado() }
   function editar(fz) { folha = null; abrirFiado(fz) }
   function pedirReceber(fz) { rc = fz; forma = ''; data = hoje(); folha = 'receber' }
+  // recebido ou excluído em outro celular: quando a lista recarrega sem ele, o painel fecha
+  $effect(() => { if (folha === 'receber' && rc && !S.fiados.some(x => x.id === rc.id)) folha = null })
 
   async function receber() {
     if (enviando) return
@@ -37,7 +39,6 @@
       avisar('Recebido · entrou no caixa')
     } catch (e) {
       tratarErro(e)
-      if (!S.fiados.some(x => x.id === rc.id)) folha = null
     } finally {
       enviando = false
     }
