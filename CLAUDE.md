@@ -2,7 +2,7 @@
 
 ## O que é
 **Nome do app: Financeiro NP3D** (use sempre esse nome: título, ícone na tela de início, manifest).
-PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 4.0.0.
+PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 4.1.0.
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
@@ -21,17 +21,18 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `app/index.html`: casca da página e a regra de segurança (CSP).
 - `app/src/App.svelte`: navegação (barra inferior com o + no celular, menu lateral no computador), lançamento por cima, confirmação, avisos.
 - `app/src/telas/`: `Porta` (login, trava, carregando), `Inicio`, `Historico`, `Gestao`, `Ajustes`.
-- `app/src/componentes/`: `Lancar` (formulário com teclado numérico; tela cheia no celular, fixo ao lado no Início do computador), `Teclado`, `Folha` (painel que sobe de baixo), `CartaoMes` + `Vaso`, `GraficoMeses`, `ItemLanc`, `Dinheiro`.
+- `app/src/componentes/`: `Lancar` (formulário com teclado numérico; tela cheia no celular, fixo ao lado no Início do computador), `Teclado`, `Folha` (painel que sobe de baixo), `CartaoMes` + `Vaso`, `GraficoMeses`, `ItemLanc`, `Dinheiro`, `Fiados` (linha "A receber" do Início, lista e "Recebeu").
 - `app/src/lib/config.js`: URL e chave pública do Supabase e e-mails dos dois usuários. A chave pública pode ficar no repositório; a `service_role` / `secret` nunca.
 - `app/src/lib/api.js`: login, renovação de sessão e chamadas ao banco (objeto `Api`).
 - `app/src/lib/lock.js`: trava com Face ID via WebAuthn (objeto `Lock`). É trava local do aparelho; a segurança real é o login + RLS.
-- `app/src/lib/estado.svelte.js`: estado (`S`), carregar, sincronizar, trava, salvar/excluir lançamentos, categorias e recorrentes.
-- `app/src/lib/analise.js`: contas da Gestão (lucro, meta mínima, canais). `ia.js`: dados enviados à IA e cache do dia. `exportar.js`: CSV.
+- `app/src/lib/estado.svelte.js`: estado (`S`), carregar, sincronizar, trava, salvar/excluir lançamentos, categorias, recorrentes e fiados.
+- `app/src/lib/analise.js`: contas da Gestão (lucro, meta mínima, canais). `ia.js`: dados enviados à IA e cache do dia. `exportar.js`: CSV. `fiados.js`: contas dos fiados (testes com `npm test` em `app/`).
 - `app/public/sw.js`: service worker (rede primeiro, cache offline).
 - `supabase/setup.sql`: tabelas, segurança (RLS) e categorias iniciais.
 - `supabase/v2.sql`: lançamentos que se repetem (tabela `recorrentes` e função `gerar_recorrentes`).
 - `supabase/v3-seguranca.sql`: reforços de segurança (cor válida, tamanhos, data não futura, função com caminho fixo, índices).
 - `supabase/v2-ordem.sql`: coluna `ordem` nas categorias (ordem manual, arrastando em Ajustes). Sem ela, o app ordena pelas mais usadas.
+- `supabase/v4-fiados.sql`: fiados (tabela `fiados` e função `receber_fiado`, que apaga o fiado e lança a venda juntos).
 - `supabase/functions/analise/index.ts`: Edge Function que chama o Gemini. A chave fica no segredo `GEMINI_API_KEY` do Supabase.
 
 ## Banco (Supabase)
@@ -39,11 +40,13 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `categorias` (nome, tipo `entrada`/`saida`, natureza, ativa). Naturezas: entrada = `venda`, `aporte`, `outra`; saída = `variavel`, `fixa`, `investimento`. Na interface aparecem como Venda, Dinheiro colocado, Outra entrada, Gasto de produção, Conta fixa, Equipamento.
 - `lancamentos` (tipo, valor, categoria_id, descricao, forma_pagamento, data, usuario_id, recorrente_id).
 - `recorrentes` (valor, dia_mes, inicio, gerado_ate, ativa...). O app chama `rpc/gerar_recorrentes` ao abrir; lançamento gerado que for apagado não volta.
+- `fiados` (nome, valor, categoria_id, descricao, data da entrega, usuario_id). Não entram em nenhuma conta; o `rpc/receber_fiado` vira Venda na data do pagamento. Sem a tabela, o app segue sem fiados.
 - Cadastro de novos usuários fica desligado no Supabase.
 
 ## Comportamentos importantes
 - O app abre na hora com os últimos dados guardados no celular (`caixa_cache`) e atualiza por trás; só busca antes de mostrar logo depois de entrar com a senha. Atualiza sozinho a cada 30 s com o app aberto e na hora em que volta para a tela, sem interromper um formulário aberto.
 - **Lançar (desde a 4.0):** o Início é um painel (saldo, vendas do mês contra a meta mínima, atalhos de Entrada/Saída e últimos lançamentos). O lançamento abre pelo + da barra inferior (tela cheia) ou pelos atalhos; no computador fica fixo à direita do Início e aceita os números do teclado físico. O valor é sempre digitado no teclado numérico do próprio app (o do iPhone cobria o botão). Valor, categoria e descrição são obrigatórios; data, repetir, pagamento e quem fez ficam em "Detalhes". Tocar num lançamento abre a edição.
+- **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" no painel "A receber" do Início. O pagamento é sempre do valor todo; pagamento parcial = editar o valor. A Venda criada leva "Nome · o que levou" na descrição.
 - **Meta mínima:** sempre pela média dos últimos 3 meses, igual no Início e na Gestão.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.

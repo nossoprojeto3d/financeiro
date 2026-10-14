@@ -7,7 +7,7 @@ import { cent, hoje, deISO, fmt } from './formato.js'
 import { corDaPosicao } from './dados.js'
 import { ordenarFiados, categoriaPadraoFiado } from './fiados.js'
 
-export const VERSAO = '4.0.0'
+export const VERSAO = '4.1.0'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app'
