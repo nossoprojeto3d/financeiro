@@ -19,13 +19,13 @@ Anotar quem levou uma peça e ainda está devendo e, quando a pessoa pagar, regi
 
 ### Anotar um fiado
 
-- **No formulário de lançamento** (`Lancar.svelte`), só em Entrada e só em lançamento novo: a folha Detalhes ganha o interruptor **"Ainda não recebi"**. Ligado, mostra o campo **"Quem deve"** e esconde "Repetir todo mês" e "Forma de pagamento". A data continua valendo (é a data da entrega).
-- **Pelo atalho "+ Anotar fiado"**, o formulário abre já em Entrada e no modo fiado, com o campo **"Quem deve"** logo abaixo do valor (antes da categoria), sem precisar abrir Detalhes. O seletor Entrada/Saída fica escondido nesse modo.
+- **No formulário de lançamento** (`Lancar.svelte`), só em Entrada e só em lançamento novo: a folha Detalhes ganha o interruptor **"Ainda não recebi"**. Ligado, ativa o modo fiado e esconde "Repetir todo mês" e "Forma de pagamento". A data continua valendo (é a data da entrega).
+- **Pelo atalho "+ Anotar fiado"**, o formulário abre já em Entrada e no modo fiado, com a categoria de venda que aparece primeiro na lista já marcada.
+- **No modo fiado** (pelos dois caminhos), o campo **"Quem deve"** fica no formulário principal, logo abaixo do valor e antes da categoria. No lugar do seletor Entrada/Saída aparece o título "Novo fiado", com o X para cancelar (também no painel fixo do computador). Para voltar a um lançamento comum, basta desligar o interruptor em Detalhes.
 - **Campo "Quem deve":** texto com fonte de 16px, até 60 caracteres, e sugestões dos nomes já usados em fiados abertos (`<datalist>`). O nome é guardado do jeito que foi digitado, sem espaços nas pontas.
 - A linha de detalhes do formulário mostra **"Fiado · Ana"** no lugar da forma de pagamento.
 - **Obrigatórios:** valor, categoria, o que levou (descrição) e quem deve. Se faltar o nome, o campo treme, como acontece com a descrição.
 - O botão verde diz **"Anotar fiado"** e o aviso depois de salvar é "Fiado anotado".
-- Se o usuário trocar para Saída com o modo fiado ligado, o modo desliga.
 
 ### Linha no Início (`Fiados.svelte`)
 
@@ -39,7 +39,7 @@ Anotar quem levou uma peça e ainda está devendo e, quando a pessoa pagar, regi
 
 - No topo, o botão **"+ Anotar fiado"**. Abaixo, a lista ordenada do mais antigo para o mais novo (data da entrega; empate pelo id).
 - Cada item mostra **nome**, o que levou (pequeno, cortado com reticências), **valor** e "hoje", "ontem" ou "há N dias", além do botão **"Recebeu"**.
-- **Tocar no item** abre o formulário de edição do fiado (valor, categoria, o que levou, quem deve, data), com a lixeira para excluir. Excluir pede confirmação com `confirmar('Excluir o fiado de Ana (R$ 80,00)?')` e mostra o aviso "Fiado excluído".
+- **Tocar no item** abre o formulário de edição do fiado (valor, categoria, o que levou, quem deve, data), com a lixeira para excluir. Excluir usa a mesma folha de confirmação do formulário ("Excluir fiado?", "O fiado de Ana (R$ 80,00) sai da lista e não dá para desfazer.") e mostra o aviso "Fiado excluído".
 
 ### Receber (`Folha` "Recebeu")
 
@@ -98,18 +98,19 @@ receberFiado: (id, forma, data) => rest('rpc/receber_fiado', { method: 'POST', b
 
 ### `lib/fiados.js` (funções puras, testáveis)
 
-- `totalFiados(lista)`: soma em centavos (`cent`), devolve reais.
+- Total a receber: `soma()` do `formato.js`, que já soma em centavos.
+- `categoriaPadraoFiado(cats)`: primeira categoria de natureza venda da lista (ou a primeira da lista, ou `null`).
+- `ordenarFiados(lista)`: da entrega mais antiga para a mais nova (empate pelo id).
 - `pessoas(lista)`: quantidade de nomes diferentes, comparando sem maiúsculas e sem acentos.
 - `haQuanto(dataISO, hojeISO)`: "hoje", "ontem" ou "há N dias".
-- `descricaoRecebida(fiado)`: `"Ana · 2 vasos"`, cortada em 200 caracteres (mesma regra do SQL, usada na prévia e nos testes).
 - `nomesUsados(lista)`: nomes únicos para as sugestões.
 
 ### `estado.svelte.js`
 
 - `S.fiados = []` e `S.temFiados = false` (indica se a tabela existe).
 - `buscarFiados()` no molde de `buscarRecorrentes()`: se der erro que não seja de login, devolve `null` (tabela não existe), e aí `temFiados = false`.
-- Os fiados entram em `carregarTudo`, `sincronizar`, `abrirComGuardados` e `guardarCache` (campo novo `f` dentro do `caixa_cache`, com a mesma chave). `assinatura()` passa a incluir os fiados (quantidade, maior id e maior `atualizado_em`). Quando outra pessoa anota um fiado, aparece o aviso "Thai anotou um fiado de R$ 80,00".
-- `S.lancar` ganha `fiado: false`, `nome: ''` e `fiado_id: null`. `abrirLancar` aceita um fiado para editar e a opção `{ fiado: true }`; um rascunho com nome preenchido conta como "ocupado" para a sincronização não interromper.
+- Os fiados entram em `carregarTudo`, `sincronizar`, `abrirComGuardados` e `guardarCache` (campo novo `f` dentro do `caixa_cache`, com a mesma chave). A sincronização compara uma assinatura própria dos fiados (quantidade, maior id e maior `atualizado_em`). A `assinatura()` dos lançamentos não muda, porque a Gestão a usa para avisar "Teve lançamento novo depois dessa análise", e um fiado não é lançamento. Quando outra pessoa anota um fiado, aparece o aviso "Thai anotou um fiado de R$ 80,00".
+- `S.lancar` ganha `fiado: false` e `nome: ''`. Editando um fiado, `id` é o id do fiado e `fiado` é `true`. A nova `abrirFiado(fiado = null)` abre o formulário para anotar ou editar; um rascunho com nome preenchido conta como "ocupado" para a sincronização não interromper.
 - `salvarLanc(f)`: se `f.fiado`, cria ou edita na tabela `fiados` (nome, valor, categoria, descrição, data) em vez de `lancamentos`.
 - `excluirFiado(id)` e `receberFiado(fiado, forma, data)`. O receber começa com `if (enviando) return` no componente; se der certo, põe a Venda em `S.lancs`, tira o fiado de `S.fiados` e salva o cache. Se o erro for "já foi recebido", recarrega os dados.
 - `excluirCategoria` e a contagem que decide se precisa pedir outra categoria passam a considerar os fiados da categoria.
@@ -125,11 +126,11 @@ receberFiado: (id, forma, data) => rest('rpc/receber_fiado', { method: 'POST', b
 
 - Sem internet ao anotar, editar, excluir ou receber: aviso de erro como hoje, e o botão vira "Tentar de novo" no formulário. Receber é seguro para repetir, porque a função não duplica.
 - Fiado recebido ou excluído em outro celular: aviso "Esse fiado já foi recebido ou excluído." e a lista é recarregada.
-- Sem a tabela no banco: nada de fiados aparece, inclusive o interruptor "Ainda não recebi" (só aparece com `S.temFiados`).
+- Sem a tabela no banco (o Supabase responde que não achou a tabela `fiados`; sem internet é outro erro e não conta): nada de fiados aparece, inclusive o interruptor "Ainda não recebi" (só aparece com `S.temFiados`).
 
 ## Testes
 
-- **Vitest** (dependência de desenvolvimento nova, gratuita) para `lib/fiados.js`: soma em centavos (0,1 + 0,2), pessoas com acento e maiúscula, "há N dias" virando o mês, descrição cortada em 200.
+- **Vitest** (dependência de desenvolvimento nova, gratuita) para `lib/fiados.js`: pessoas com acento e maiúscula, "há N dias" virando o mês, categoria padrão, ordem da lista e nomes sugeridos.
 - **Navegador** com o build (`npx vite preview`), um `fetch` falso para o Supabase e uma sessão falsa (initScript do chrome-devtools), em 390×844 e no computador: anotar pelos dois caminhos, editar, excluir, receber, toque duplo no Recebeu, linha "Anotar fiado" sem fiados, sem a tabela (404) e a sincronização trazendo um fiado de outro usuário. Nada toca no banco de verdade.
 - `CHECK` do SQL revisado à mão. O SQL é rodado pelo Junior no Supabase.
 
