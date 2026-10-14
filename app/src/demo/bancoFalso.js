@@ -12,7 +12,7 @@ const diasAtras = n => { const d = new Date(); d.setDate(d.getDate() - n); retur
 
 function bancoInicial() {
   const nomes = [
-    ['Vendas Shopee', 'entrada', 'venda'], ['Vendas diretas', 'entrada', 'venda'],
+    ['Vendas Shopee', 'entrada', 'venda'], ['Vendas diretas / WhatsApp', 'entrada', 'venda'],
     ['Encomendas personalizadas', 'entrada', 'venda'], ['Aporte de investidor', 'entrada', 'aporte'],
     ['Saldo inicial / ajuste', 'entrada', 'outra'], ['Filamento', 'saida', 'variavel'],
     ['Embalagens', 'saida', 'variavel'], ['Frete / envio', 'saida', 'variavel'],
