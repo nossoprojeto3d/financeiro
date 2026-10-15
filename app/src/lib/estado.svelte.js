@@ -6,8 +6,9 @@ import { Lock } from './lock.js'
 import { cent, hoje, deISO, fmt } from './formato.js'
 import { corDaPosicao } from './dados.js'
 import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
+import { novoPendente, juntarComFila, lerFila, gravarFila } from './fila.js'
 
-export const VERSAO = '4.3.0'
+export const VERSAO = '4.4.0'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app'
@@ -55,7 +56,9 @@ export const perfil = id => indice('perfil', S.perfis).get(id)
 const comCores = lista => [...lista].sort((a, b) => a.id - b.id).map((c, i) => ({ ...c, cor: corDaPosicao(i) }))
 const semCor = lista => lista.map(({ cor, ...c }) => c)
 const numerico = l => ({ ...l, valor: Number(l.valor), ...('pago' in l ? { pago: Number(l.pago) } : {}) })
-const ordenar = lista => lista.sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : b.id - a.id))
+// no mesmo dia, o mais novo primeiro; os que esperam internet (id negativo) são os mais novos
+const ordemId = l => (l.id < 0 ? -l.id : l.id)
+const ordenar = lista => lista.sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : ordemId(b) - ordemId(a)))
 
 // Ordem manual (coluna "ordem", do v2-ordem.sql). Sem ela no banco, as mais usadas primeiro.
 export const temOrdem = () => S.categorias.some(c => 'ordem' in c)
@@ -128,7 +131,7 @@ function guardarCache() {
   try {
     localStorage.setItem('caixa_cache', JSON.stringify({
       p: $state.snapshot(S.perfis), c: semCor($state.snapshot(S.categorias)),
-      l: $state.snapshot(S.lancs), rc: $state.snapshot(S.recorrentes),
+      l: $state.snapshot(S.lancs).filter(l => !l.pendente), rc: $state.snapshot(S.recorrentes),
       f: $state.snapshot(S.fiados), tf: S.temFiados,
     }))
   } catch (_) {}
@@ -142,7 +145,7 @@ export async function carregarTudo() {
     S.categorias = comCores(c)
     S.recorrentes = rc
     usarFiados(fz)
-    S.lancs = ordenar(l.map(numerico))
+    S.lancs = ordenar(juntarComFila(l.map(numerico), lerFila()))
     S.offline = false
     S.carregadoEm = Date.now()
     guardarCache()
@@ -150,7 +153,7 @@ export async function carregarTudo() {
     if (e.auth) throw e
     const cache = JSON.parse(localStorage.getItem('caixa_cache') || 'null')
     if (!cache) throw e
-    S.perfis = cache.p; S.categorias = comCores(cache.c); S.lancs = ordenar(cache.l); S.recorrentes = cache.rc || []
+    S.perfis = cache.p; S.categorias = comCores(cache.c); S.lancs = ordenar(juntarComFila(cache.l, lerFila())); S.recorrentes = cache.rc || []
     S.fiados = cache.f || []; S.temFiados = !!cache.tf
     S.offline = true
     avisar('Sem conexão. Mostrando os últimos dados salvos.', 'erro')
@@ -190,13 +193,14 @@ export async function sincronizar() {
   if (sincronizando || document.hidden || S.fase !== 'app' || ocupado()) return
   sincronizando = true
   try {
+    await enviarFila()
     await gerarRecorrentes()
     const [c, l, rc, fz] = await Promise.all([Api.categorias(), Api.lancamentos(), buscarRecorrentes(), buscarFiados()])
     const novos = ordenar(l.map(numerico))
     S.recorrentes = rc
     S.offline = false
     S.carregadoEm = Date.now()
-    const mudouLancs = assinatura(novos, c) !== assinatura(S.lancs, S.categorias)
+    const mudouLancs = assinatura(novos, c) !== assinatura(S.lancs.filter(l => !l.pendente), S.categorias)
     const mudouFiados = !!fz !== S.temFiados || assinaturaFiados(fz || []) !== assinaturaFiados(S.fiados)
     if (!mudouLancs && !mudouFiados) return
     if (ocupado()) return
@@ -205,7 +209,7 @@ export async function sincronizar() {
     const deOutros = novos.filter(x => !antes.has(x.id) && x.usuario_id !== S.perfil.id)
     const fiadosAntes = new Set(S.fiados.map(x => x.id))
     const fiadosDeOutros = (fz || []).filter(x => !fiadosAntes.has(x.id) && x.usuario_id !== S.perfil.id)
-    S.lancs = novos
+    S.lancs = ordenar(juntarComFila(novos, lerFila()))
     S.categorias = comCores(c)
     usarFiados(fz)
     guardarCache()
@@ -232,7 +236,7 @@ function abrirComGuardados() {
   if (!cache?.p || !cache.c || !cache.l) return false
   const eu = cache.p.find(p => p.id === Api.sessao().user.id)
   if (!eu) return false
-  S.perfis = cache.p; S.categorias = comCores(cache.c); S.lancs = ordenar(cache.l); S.recorrentes = cache.rc || []
+  S.perfis = cache.p; S.categorias = comCores(cache.c); S.lancs = ordenar(juntarComFila(cache.l, lerFila())); S.recorrentes = cache.rc || []
   S.fiados = cache.f || []; S.temFiados = !!cache.tf
   S.perfil = eu
   S.fase = 'app'
@@ -249,6 +253,7 @@ export async function entrar(acabouDeLogar = false) {
   S.fase = 'app'
   marcarUso()
   iniciarSync()
+  enviarFila().catch(tratarErro)
   if (acabouDeLogar && !Lock.ativo() && await Lock.disponivel()) S.ofertaFaceId = true
 }
 
@@ -339,6 +344,14 @@ export async function salvarLanc(f) {
     tipo: f.tipo, valor: f.centavos / 100, categoria_id: f.categoria_id, data: f.data,
     descricao: f.descricao.trim() || null, forma_pagamento: f.forma_pagamento || null, usuario_id: f.usuario_id,
   }
+  if (f.id < 0) {
+    // ainda esperando internet: corrige só aqui no celular
+    gravarFila(lerFila().map(p => (p.id === f.id ? { ...p, ...dados, erro: null } : p)))
+    const i = S.lancs.findIndex(l => l.id === f.id)
+    if (i >= 0) S.lancs[i] = { ...S.lancs[i], ...dados, erro: null }
+    ordenar(S.lancs)
+    return { pendente: true }
+  }
   if (f.id) {
     const r = await Api.editarLancamento(f.id, dados)
     if (!r) throw new Error('Esse lançamento foi excluído em outro aparelho.')
@@ -350,18 +363,69 @@ export async function salvarLanc(f) {
     const rec = await Api.criarRecorrente({ ...resto, dia_mes: deISO(data).getDate(), inicio: data })
     S.recorrentes.push(numerico(rec))
     await gerarRecorrentes(true)
-    S.lancs = (await Api.lancamentos()).map(numerico)
+    S.lancs = juntarComFila((await Api.lancamentos()).map(numerico), lerFila())
   } else {
-    S.lancs.push(numerico(await Api.criarLancamento(dados)))
+    // lançamento novo: vai com etiqueta; sem internet, fica na fila e vai sozinho depois
+    const pend = novoPendente(dados)
+    try {
+      S.lancs.push(numerico(await Api.criarLancamento({ ...dados, id_cliente: pend.id_cliente })))
+    } catch (e) {
+      if (!e.rede) throw e
+      gravarFila([...lerFila(), pend])
+      S.lancs.push(pend)
+      ordenar(S.lancs)
+      return { pendente: true }
+    }
   }
   ordenar(S.lancs)
   guardarCache()
 }
 
 export async function excluirLanc(id) {
+  if (id < 0) {
+    gravarFila(lerFila().filter(p => p.id !== id))
+    S.lancs = S.lancs.filter(l => l.id !== id)
+    return
+  }
   await Api.excluirLancamento(id)
   S.lancs = S.lancs.filter(l => l.id !== id)
   guardarCache()
+}
+
+/* ---------- Fila: lançamentos feitos sem internet ---------- */
+let enviandoFila = false
+// Manda os que esperam, na ordem. Sem internet, para e tenta de novo depois (ao voltar a conexão,
+// ao voltar para o app e a cada 30 s). Recusado pelo banco: fica marcado com o erro, para corrigir.
+export async function enviarFila() {
+  if (enviandoFila || !lerFila().length || S.fase !== 'app') return
+  enviandoFila = true
+  let enviados = 0, recusados = 0
+  try {
+    for (const p of lerFila()) {
+      if (S.lancar?.id === p.id) continue // sendo corrigido agora
+      const { id, pendente, erro, ...dados } = p
+      try {
+        const real = numerico(await Api.criarLancamento(dados))
+        gravarFila(lerFila().filter(x => x.id !== id))
+        const i = S.lancs.findIndex(l => l.id === id)
+        if (i >= 0) S.lancs[i] = real; else S.lancs.push(real)
+        enviados++
+      } catch (e) {
+        if (e.rede) break
+        if (e.auth) throw e
+        gravarFila(lerFila().map(x => (x.id === id ? { ...x, erro: e.message } : x)))
+        const l = S.lancs.find(l => l.id === id)
+        if (l) l.erro = e.message
+        recusados++
+      }
+    }
+  } finally {
+    enviandoFila = false
+    ordenar(S.lancs)
+    guardarCache()
+  }
+  if (enviados) avisar(enviados === 1 ? 'O lançamento feito sem internet foi enviado' : `${enviados} lançamentos feitos sem internet foram enviados`)
+  else if (recusados) avisar('Um lançamento feito sem internet não foi aceito. Toque nele para corrigir.', 'erro')
 }
 
 /* ---------- Fiados ---------- */
@@ -507,6 +571,8 @@ export function iniciar() {
     if (precisaTravar()) { S.confirmar = null; S.fase = 'trava'; return }
     sincronizar() // voltou para o app: confere na hora se tem novidade
   })
+  // a internet voltou: manda na hora os lançamentos feitos sem ela
+  addEventListener('online', () => { if (S.fase === 'app') enviarFila().catch(tratarErro) })
 
   if (!Api.configurado()) { S.erroLogin = 'Falta configurar o banco em src/lib/config.js.'; S.fase = 'login'; return }
   if (!Api.sessao()) { S.fase = 'login'; return }

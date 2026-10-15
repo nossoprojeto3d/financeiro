@@ -81,6 +81,8 @@ const real = window.fetch.bind(window)
 window.fetch = async (url, op = {}) => {
   url = String(url)
   if (!url.startsWith(CONFIG.SUPABASE_URL)) return real(url, op)
+  // sem internet (modo avião, ou o teste desligou a rede): igual ao iPhone, a chamada falha
+  if (!navigator.onLine) throw new TypeError('Load failed')
   await espera()
   const u = new URL(url), m = (op.method || 'GET').toUpperCase()
   const corpo = op.body ? JSON.parse(op.body) : null
@@ -123,8 +125,15 @@ window.fetch = async (url, op = {}) => {
   const bate = x => filtros.every(([k, v]) => String(x[k]) === v.slice(3))
   if (m === 'GET') return resp(lista.filter(bate))
   if (m === 'POST') {
+    // banco sem o v4-sem-internet.sql (os testes ligam isto): não conhece a coluna da etiqueta
+    if (window.__semEtiqueta && 'id_cliente' in corpo)
+      return erro("Could not find the 'id_cliente' column of 'lancamentos' in the schema cache", 400)
+    // etiqueta repetida (o mesmo lançamento chegando de novo): ignora, como o banco faz
+    if (caminho === 'lancamentos' && corpo.id_cliente && lista.some(x => x.id_cliente === corpo.id_cliente)) return resp([], 201)
     const novo = { usuario_id: EU, ...(caminho === 'fiados' ? { pago: 0 } : {}), ...corpo, id: ++db.seq, atualizado_em: 't' + db.seq }
     lista.push(novo); salvar()
+    // os testes ligam isto para simular o sinal caindo depois que o lançamento já chegou
+    if (window.__perderResposta) { window.__perderResposta = false; throw new TypeError('Load failed') }
     return resp([novo], 201)
   }
   if (m === 'PATCH') {

@@ -36,7 +36,10 @@ export const Api = (() => {
   let ultimaResposta = 0; // hora da última resposta do servidor
   async function chamar(url, opcoes) {
     try { const r = await fetch(url, opcoes); ultimaResposta = Date.now(); return r; }
-    catch (e) { throw new Error(traduzir(e.message)); }
+    catch (e) {
+      // não chegou ao servidor (sem internet, sinal caiu): quem chamou pode guardar para depois
+      const erro = new Error(traduzir(e.message)); erro.rede = true; throw erro;
+    }
   }
   const esperar = ms => new Promise(ok => setTimeout(ok, ms));
 
@@ -153,7 +156,20 @@ export const Api = (() => {
     perfis: () => rest('perfis?select=id,nome,cor&order=nome'),
     categorias: () => rest('categorias?select=*&order=nome'),
     lancamentos: () => todos('lancamentos?select=*&order=data.desc,id.desc'),
-    criarLancamento: d => rest('lancamentos', { method: 'POST', body: d, ...volta }).then(r => r[0]),
+    // Com etiqueta (id_cliente): se o mesmo lançamento chegar duas vezes, o banco ignora o
+    // segundo e aqui se busca o que já estava lá. Sem o v4-sem-internet.sql, envia sem etiqueta.
+    criarLancamento: async d => {
+      if (!d.id_cliente) return rest('lancamentos', { method: 'POST', body: d, ...volta }).then(r => r[0]);
+      try {
+        const r = await rest('lancamentos?on_conflict=id_cliente', { method: 'POST', body: d, prefer: 'return=representation,resolution=ignore-duplicates' });
+        if (r?.length) return r[0];
+        return (await rest(`lancamentos?id_cliente=eq.${d.id_cliente}&select=*`))[0];
+      } catch (e) {
+        if (e.rede || e.auth || !/id_cliente|on conflict/i.test(e.message)) throw e;
+        const { id_cliente, ...sem } = d;
+        return rest('lancamentos', { method: 'POST', body: sem, ...volta }).then(r => r[0]);
+      }
+    },
     editarLancamento: (id, d) => rest(`lancamentos?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
     excluirLancamento: id => rest(`lancamentos?id=eq.${id}`, { method: 'DELETE' }),
     criarCategoria: d => rest('categorias', { method: 'POST', body: d, ...volta }).then(r => r[0]),

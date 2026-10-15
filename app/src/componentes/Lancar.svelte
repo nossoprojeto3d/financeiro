@@ -70,9 +70,10 @@
     enviando = true
     const editando = !!f.id, tipo = f.tipo, mensal = f.repetir, fiado = f.fiado
     try {
-      await salvarLanc(f)
+      const r = await salvarLanc(f)
       tentarDeNovo = false
-      avisar(editando ? 'Alterações salvas' : fiado ? 'Fiado anotado' : mensal ? 'Lançamento mensal criado' : tipo === 'entrada' ? 'Entrada lançada' : 'Saída lançada')
+      if (r?.pendente && !editando) avisar('Sem internet: ficou guardado aqui e vai sozinho quando a conexão voltar')
+      else avisar(editando ? 'Alterações salvas' : fiado ? 'Fiado anotado' : mensal ? 'Lançamento mensal criado' : tipo === 'entrada' ? 'Entrada lançada' : 'Saída lançada')
       if (fixo) abrirLancar(editando ? 'entrada' : tipo)
       else fecharLancar()
     } catch (e) {

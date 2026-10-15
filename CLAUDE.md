@@ -2,7 +2,7 @@
 
 ## O que é
 **Nome do app: Financeiro NP3D** (use sempre esse nome: título, ícone na tela de início, manifest).
-PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 4.3.0.
+PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 4.4.0.
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
@@ -28,7 +28,7 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `app/src/lib/api.js`: login, renovação de sessão e chamadas ao banco (objeto `Api`).
 - `app/src/lib/lock.js`: trava com Face ID via WebAuthn (objeto `Lock`). É trava local do aparelho; a segurança real é o login + RLS.
 - `app/src/lib/estado.svelte.js`: estado (`S`), carregar, sincronizar, trava, salvar/excluir lançamentos, categorias, recorrentes e fiados.
-- `app/src/lib/analise.js`: contas da Gestão (lucro, meta mínima, canais). `ia.js`: dados enviados à IA e cache do dia. `exportar.js`: CSV. `fiados.js`: contas dos fiados (testes com `npm test` em `app/`).
+- `app/src/lib/analise.js`: contas da Gestão (lucro, meta mínima, canais). `ia.js`: dados enviados à IA e cache do dia. `exportar.js`: CSV. `fiados.js`: contas dos fiados (testes com `npm test` em `app/`). `fila.js`: fila dos lançamentos feitos sem internet (chave `caixa_fila`).
 - `app/public/sw.js`: service worker (rede primeiro, cache offline).
 - `supabase/setup.sql`: tabelas, segurança (RLS) e categorias iniciais.
 - `supabase/v2.sql`: lançamentos que se repetem (tabela `recorrentes` e função `gerar_recorrentes`).
@@ -37,12 +37,13 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `supabase/v4-fiados.sql`: fiados (tabela `fiados` e função `receber_fiado`, que apaga o fiado e lança a venda juntos).
 - `supabase/v4-fiados-parcial.sql`: pagar só uma parte do fiado (coluna `pago` e `receber_fiado` com `p_valor`). Depois dele, não rode o `v4-fiados.sql` de novo.
 - `supabase/v4-fiados-historico.sql`: `lancamentos.fiado_id` (de qual fiado veio a venda, para o "Já pagou") e `receber_fiado` com `p_pago_esperado`/`p_valor_esperado` (recusa se o fiado mudou em outro celular). Depois dele, não rode os dois anteriores de novo. A função de receber é uma só; os SQLs de fiado formam uma sequência.
+- `supabase/v4-sem-internet.sql`: etiqueta `lancamentos.id_cliente` (única) para o mesmo lançamento não entrar duas vezes quando é reenviado.
 - `supabase/functions/analise/index.ts`: Edge Function que chama o Gemini. A chave fica no segredo `GEMINI_API_KEY` do Supabase.
 
 ## Banco (Supabase)
 - `perfis` (id = usuário do Auth, nome, cor). Só quem tem perfil acessa algo (função `is_membro()`).
 - `categorias` (nome, tipo `entrada`/`saida`, natureza, ativa). Naturezas: entrada = `venda`, `aporte`, `outra`; saída = `variavel`, `fixa`, `investimento`. Na interface aparecem como Venda, Dinheiro colocado, Outra entrada, Gasto de produção, Conta fixa, Equipamento.
-- `lancamentos` (tipo, valor, categoria_id, descricao, forma_pagamento, data, usuario_id, recorrente_id, fiado_id). `fiado_id` = venda que veio de um fiado (sem chave estrangeira: o fiado some ao ser quitado).
+- `lancamentos` (tipo, valor, categoria_id, descricao, forma_pagamento, data, usuario_id, recorrente_id, fiado_id). `fiado_id` = venda que veio de um fiado (sem chave estrangeira: o fiado some ao ser quitado). `id_cliente` = etiqueta (uuid) criada no celular para cada lançamento novo; o envio usa `on_conflict=id_cliente` e ignora repetidos.
 - `recorrentes` (valor, dia_mes, inicio, gerado_ate, ativa...). O app chama `rpc/gerar_recorrentes` ao abrir; lançamento gerado que for apagado não volta.
 - `fiados` (nome, valor = total da compra, pago = quanto já pagou, categoria_id, descricao, data da entrega, usuario_id). Não entram em nenhuma conta; o `rpc/receber_fiado` vira Venda na data do pagamento (com `p_valor`, só uma parte: a venda leva "(parte)" e o fiado fica com o que falta). Sem a tabela, o app segue sem fiados.
 - Cadastro de novos usuários fica desligado no Supabase.
@@ -52,13 +53,14 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - O app abre na hora com os últimos dados guardados no celular (`caixa_cache`) e atualiza por trás; só busca antes de mostrar logo depois de entrar com a senha. Atualiza sozinho a cada 30 s com o app aberto e na hora em que volta para a tela, sem interromper um formulário aberto.
 - **Lançar (desde a 4.0):** o Início é um painel (saldo, vendas do mês contra a meta mínima, atalhos de Entrada/Saída e últimos lançamentos). O lançamento abre pelo + da barra inferior (tela cheia) ou pelos atalhos; no computador fica fixo à direita do Início e aceita os números do teclado físico. O valor é sempre digitado no teclado numérico do próprio app (o do iPhone cobria o botão). Valor, categoria e descrição são obrigatórios; data, repetir, pagamento e quem fez ficam em "Detalhes". Tocar num lançamento abre a edição.
 - **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" na tela "A receber" (o cartão do Início leva até ela). No "Recebeu" dá para receber tudo ou só uma parte (desde a 4.2); o que falta = valor − pago, sempre em centavos (`falta()` e `totalFalta()` em `fiados.js`). A Venda criada leva "Nome · o que levou" na descrição, com "(parte)" quando não quita. O Recebeu mostra o que já foi pago ("Já pagou") e manda ao banco o pago/valor que a tela viu: se outro celular mexeu no fiado antes, o banco recusa ("Esse fiado mudou agora há pouco…"), a lista recarrega e o painel fecha. Sem o `v4-fiados-historico.sql`, o app tenta de novo sem essa conferência. A Gestão mostra "A receber agora" (valor de agora, não muda com o período).
+- **Lançar sem internet (desde a 4.4):** lançamento novo (entrada ou saída) que não consegue chegar ao banco por falta de rede fica na fila do celular (`caixa_fila`), aparece na lista com "Esperando internet", já conta no saldo e é enviado sozinho ao voltar a conexão (evento `online`), ao voltar para o app, ao entrar e a cada 30 s. Dá para corrigir e apagar enquanto espera. Recusado pelo banco: fica marcado "Não foi aceito" para corrigir. Editar/excluir um já enviado, repetir todo mês, fiados e Recebeu continuam precisando de internet. O cache (`caixa_cache`) guarda só o que já está no banco; `ordenar()` põe os pendentes (id negativo) como os mais novos do dia.
 - **Meta mínima:** sempre pela média dos últimos 3 meses, igual no Início e na Gestão.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.
 - **Regra de segurança da página (CSP) no `app/index.html`:** só roda código do próprio app, só carrega fontes do próprio app e só conversa com o Supabase do projeto. Se trocar o projeto do Supabase, troque o endereço também no `connect-src` dessa regra. Não use `<script>` inline nem código de outro site.
 - **Valores em dinheiro:** some sempre em centavos (`cent()` e `soma()` em `app/src/lib/formato.js`), nunca somando decimais direto.
 - **Cor de perfil vinda do banco:** passe por `corSegura()` (`app/src/lib/dados.js`) antes de pôr num `style`.
-- **Chaves guardadas no celular** (`caixa_sessao`, `caixa_faceid`, `caixa_cache`, `caixa_email`, `caixa_nome`, `caixa_ultimo_uso`, `caixa_ia`): são as mesmas desde a 3.0. Não renomeie, senão todo mundo precisa entrar de novo.
+- **Chaves guardadas no celular** (`caixa_sessao`, `caixa_faceid`, `caixa_cache`, `caixa_email`, `caixa_nome`, `caixa_ultimo_uso`, `caixa_ia`, e `caixa_fila` desde a 4.4): as sete primeiras são as mesmas desde a 3.0. Não renomeie, senão todo mundo precisa entrar de novo.
 - **Toque duplo:** toda ação que grava começa checando se já está enviando (`if (enviando) return`); o botão só desativa na próxima atualização da tela.
 - **iPhone:** campos de texto com fonte de pelo menos 16px (abaixo disso o Safari dá zoom) e alvos de toque de pelo menos 40px.
 - **Função da IA (`analise`):** só atende quem tem perfil no banco e só o endereço do app. Mudou o arquivo? Republique no Supabase (Edge Functions).
@@ -87,4 +89,4 @@ Usado pelo `/conferir-site`. **O banco é o de verdade, com o dinheiro real da e
 Para testar fluxos que gravam sem tocar no banco real, use primeiro `npm run test:e2e` (automático). Para olhar com os próprios olhos, use o modo demonstração (`npm run demo`), que já traz o banco de mentira; não precisa injetar `fetch` falso à mão.
 
 ## Próximos passos planejados
-Lançar sem internet com envio depois.
+Nenhum no momento (lançar sem internet entrou na 4.4).

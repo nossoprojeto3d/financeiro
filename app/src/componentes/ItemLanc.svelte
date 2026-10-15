@@ -1,5 +1,5 @@
 <script>
-  import { Repeat } from '@lucide/svelte'
+  import { Repeat, CloudOff } from '@lucide/svelte'
   import Dinheiro from './Dinheiro.svelte'
   import { cat, perfil, S } from '../lib/estado.svelte.js'
   let { l, aoAbrir } = $props()
@@ -17,7 +17,11 @@
   </span>
   <span class="min-w-0 flex-1">
     <span class="block truncate text-[15px] text-txt">{l.descricao || c?.nome}</span>
+    {#if l.pendente}
+      <span class="flex items-center gap-1 truncate text-[13px] {l.erro ? 'text-sai' : 'text-txt-3'}"><CloudOff size={13} class="shrink-0" />{l.erro ? `Não foi aceito: ${l.erro}` : 'Esperando internet'}</span>
+    {:else}
     <span class="block truncate text-[13px] text-txt-3">{#if l.recorrente_id}<Repeat size={12} class="mr-1 inline -translate-y-px" aria-label="Se repete todo mês" />{/if}{l.descricao ? c?.nome : ''}{#if quem && quem.id !== S.perfil.id}{l.descricao ? ' · ' : ''}{quem.nome}{/if}</span>
+    {/if}
   </span>
   <Dinheiro valor={l.tipo === 'entrada' ? l.valor : -l.valor} sinal moeda={false} class="text-[16px] font-semibold {l.tipo === 'entrada' ? 'text-ent' : 'text-txt'}" />
 </button>

@@ -1,5 +1,5 @@
 <script>
-  import { Search, ChevronLeft, ChevronRight, X } from '@lucide/svelte'
+  import { Search, ChevronLeft, ChevronRight, X, CloudOff } from '@lucide/svelte'
   import ItemLanc from '../componentes/ItemLanc.svelte'
   import Dinheiro from '../componentes/Dinheiro.svelte'
   import { S, cat, perfil, abrirLancar } from '../lib/estado.svelte.js'
@@ -92,7 +92,7 @@
             {@const c = cat(l.categoria_id)}
             <tr class="cursor-pointer border-b border-linha/50 transition-colors last:border-0 hover:bg-sup-2/60 {S.lancar?.id === l.id ? 'bg-sup-2' : ''}" onclick={() => abrir(l)}>
               <td class="py-3 pl-5 whitespace-nowrap text-txt-2">{dataCurta(l.data)}</td>
-              <td class="max-w-[280px] truncate py-3 pr-4">{l.descricao || '—'}</td>
+              <td class="max-w-[280px] truncate py-3 pr-4">{#if l.pendente}<CloudOff size={14} class="mr-1.5 inline -translate-y-px {l.erro ? 'text-sai' : 'text-txt-3'}" aria-label={l.erro ? 'Não foi aceito' : 'Esperando internet'} />{/if}{l.descricao || '—'}</td>
               <td class="py-3 pr-4 whitespace-nowrap text-txt-2"><span class="mr-2 inline-block size-2 rounded-full align-middle" style="background:{c?.cor}"></span>{c?.nome}</td>
               <td class="py-3 pr-4 text-txt-2">{l.forma_pagamento || '—'}</td>
               <td class="py-3 pr-4 text-txt-2">{perfil(l.usuario_id)?.nome}</td>
