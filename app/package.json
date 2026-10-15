@@ -8,7 +8,8 @@
     "demo": "vite --mode demo",
     "build": "rm -rf ../assets && vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "conferir-backup": "bash ../scripts/conferir-backup.sh"
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.0",

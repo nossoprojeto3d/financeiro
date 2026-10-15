@@ -17,7 +17,7 @@ Banco digital escuro com alma de impressão 3D. Fundo grafite `#101218`, superf�
 
 ## Estrutura
 O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/workflows/publicar.yml`, a cada push na `main`), que copia os arquivos do site da raiz. Então **o site publicado é o build commitado**: `index.html`, `assets/`, `sw.js`, `manifest.json`, `icons/`, `favicon.svg` e `og-image.jpg` na raiz são gerados. Não edite esses arquivos na raiz; edite em `app/` e rode o build.
-- **Publicar:** `cd app && npm install && npm run build` (apaga `../assets` e gera tudo na raiz), depois commit e push da `main`. **Antes, suba o número em `CACHE` no `app/public/sw.js` e em `VERSAO` no `app/src/lib/estado.svelte.js`.**
+- **Publicar:** `cd app && npm install && npm run build` (apaga `../assets` e gera tudo na raiz), depois commit e push da `main`. **Antes, suba o número em `CACHE` no `app/public/sw.js` e em `VERSAO` no `app/src/lib/estado.svelte.js`, e rode `npm run conferir-backup` em `app/`.** Se ele avisar que o backup está parado, pare e diga ao Junior, antes de publicar, que a causa mais provável é a senha do banco ter sido trocada no Supabase e que ele precisa atualizar o segredo `SUPABASE_DB_URL` no repositório `financeiro-backup`.
 - **Modo demonstração:** `cd app && npm run demo` abre o app em `http://localhost:5173/` com dados de exemplo e um banco de mentira (`app/src/demo/bancoFalso.js`), sem tocar no Supabase. Os dados ficam no navegador; `?zerar` no endereço recomeça. Só existe no `vite --mode demo`: o build publicado não inclui.
 - `app/index.html`: casca da página e a regra de segurança (CSP).
 - `app/src/App.svelte`: navegação (barra inferior com o + no celular, menu lateral no computador), lançamento por cima, confirmação, avisos.
@@ -78,6 +78,7 @@ Usado pelo `/conferir-site`. **O banco é o de verdade, com o dinheiro real da e
 3. Layout do iPhone (390×844): nada vazando, navegação inferior visível.
 4. Se o usuário estiver logado: abrir Início, Histórico, Gestão e Ajustes sem tocar em "Lançar", "Excluir" ou "Salvar". Os gráficos aparecem.
 5. Antes de publicar: `CACHE` no `app/public/sw.js` e `VERSAO` no `app/src/lib/estado.svelte.js` foram aumentados, e o build foi gerado (`npm run build` em `app/`).
+6. Backup do banco em dia: `npm run conferir-backup` em `app/` mostra "✅ Backup do banco em dia". Se mostrar "⚠️ O BACKUP DO BANCO ESTÁ PARADO", avise o Junior com destaque: provavelmente a senha do banco mudou e o segredo `SUPABASE_DB_URL` precisa ser atualizado (o próprio aviso traz o link).
 
 Para testar fluxos que gravam sem tocar no banco real: rode o build (`npx vite preview` em `app/`) num navegador com um `fetch` falso para o endereço do Supabase e uma sessão falsa no `caixa_sessao` (via initScript do chrome-devtools). Reinjete o falso a cada recarga, senão o app chama o Supabase de verdade.
 
