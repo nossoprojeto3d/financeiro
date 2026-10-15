@@ -87,12 +87,12 @@
   {#if tela.largo}
     <div class="trava-rolagem fixed inset-0 z-40">
       <button class="absolute inset-0 bg-black/50" aria-label="Fechar" onclick={fecharLancar} transition:fade={{ duration: 180 }}></button>
-      <div class="absolute inset-y-3 right-3 w-[420px] overflow-hidden rounded-[28px] border border-linha bg-sup" transition:fly={{ x: 440, duration: 300, easing: cubicOut }}>
+      <div role="dialog" aria-modal="true" aria-label="Lançamento" class="absolute inset-y-3 right-3 w-[420px] overflow-y-auto overscroll-contain rounded-[28px] border border-linha bg-sup [scrollbar-width:none]" transition:fly={{ x: 440, duration: 300, easing: cubicOut }}>
         <Lancar modo="painel" />
       </div>
     </div>
   {:else}
-    <div class="trava-rolagem fixed inset-0 z-40 bg-fundo" transition:fly={{ y: 800, duration: 340, easing: cubicOut, opacity: 1 }}>
+    <div role="dialog" aria-modal="true" aria-label="Lançamento" class="trava-rolagem fixed inset-0 z-40 bg-fundo" transition:fly={{ y: 800, duration: 340, easing: cubicOut, opacity: 1 }}>
       <Lancar modo="tela" />
     </div>
   {/if}

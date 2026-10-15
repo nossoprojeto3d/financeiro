@@ -66,7 +66,7 @@
 
   <!-- Computador: o lançamento fica sempre à mão -->
   {#if tela.largo}
-    <aside class="sticky top-6 h-[calc(100dvh-48px)] max-h-[780px] overflow-y-auto overscroll-contain rounded-[28px] [scrollbar-width:none] border border-linha bg-sup">
+    <aside aria-label="Lançamento" class="sticky top-6 h-[calc(100dvh-48px)] max-h-[780px] overflow-y-auto overscroll-contain rounded-[28px] [scrollbar-width:none] border border-linha bg-sup">
       <Lancar modo="painel" fixo />
     </aside>
   {/if}

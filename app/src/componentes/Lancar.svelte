@@ -181,6 +181,7 @@
       <!-- Categoria: um campo só; tocar abre a lista completa, separada por tipo -->
       <button
         class="flex h-12 w-full items-center gap-3 rounded-2xl border px-4 text-left text-[16px] transition-colors hover:border-sup-3 {falta === 'cat' ? 'animate-[tremer_.4s] border-sai' : 'border-linha'}"
+        aria-label={c ? `Categoria: ${c.nome}` : 'Escolher categoria'}
         onclick={() => (folha = 'cats')}
       >
         {#if c}

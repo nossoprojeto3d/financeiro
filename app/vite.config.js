@@ -17,4 +17,6 @@ export default defineConfig(({ mode }) => ({
   plugins: [tailwindcss(), svelte(), ...(mode === 'demo' ? [demo] : [])],
   server: { host: true },
   build: { outDir: '..', emptyOutDir: false },
+  // npm test: só os testes de conta (os de tela ficam em e2e/, no npm run test:e2e)
+  test: { include: ['src/**/*.test.js'] },
 }))

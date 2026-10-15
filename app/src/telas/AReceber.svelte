@@ -73,9 +73,9 @@
   </button>
 
   {#if S.fiados.length}
-    <div>
+    <ul aria-label="Quem deve">
       {#each S.fiados as fz (fz.id)}
-        <div class="flex items-center gap-3 py-2.5 not-last:border-b not-last:border-linha/60">
+        <li class="flex items-center gap-3 py-2.5 not-last:border-b not-last:border-linha/60">
           <button class="min-w-0 flex-1 py-1 text-left" onclick={() => abrirFiado(fz)}>
             <span class="block truncate text-[15px] text-txt">{fz.nome}</span>
             <span class="block truncate text-[13px] text-txt-3">{haQuanto(fz.data, hoje())} · {fz.descricao}</span>
@@ -83,9 +83,9 @@
           </button>
           <Dinheiro valor={falta(fz)} moeda={false} class="text-[16px] font-semibold" />
           <button class="h-10 shrink-0 rounded-full bg-ent-fundo px-3.5 text-[14px] font-semibold text-ent" onclick={() => pedirReceber(fz)}>Recebeu</button>
-        </div>
+        </li>
       {/each}
-    </div>
+    </ul>
   {/if}
 </div>
 
