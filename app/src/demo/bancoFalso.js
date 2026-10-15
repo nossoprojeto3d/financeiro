@@ -38,6 +38,9 @@ function bancoInicial() {
     lanc(b + 10, 'saida', 120, 9, 'Taxas Shopee do mês', 'Transferência')
     lanc(b + 5, 'saida', 49.9, 10, 'Assinatura de modelos 3D', 'Cartão de crédito')
   }
+  // a Dona Lúcia (fiado 7) já pagou R$ 120 dos R$ 200: a venda lembra de qual fiado veio
+  lanc(5, 'entrada', 120, 3, 'Dona Lúcia · Topo de bolo (parte)', 'Pix', THAI)
+  lancamentos.at(-1).fiado_id = 7
   const fiados = [
     { id: 1, nome: 'Ana da padaria', valor: 80, categoria_id: 2, descricao: '2 vasos geométricos', data: diasAtras(12), usuario_id: THAI },
     { id: 2, nome: 'João', valor: 150, categoria_id: 3, descricao: 'Luminária lua', data: diasAtras(3), usuario_id: EU },
@@ -72,7 +75,8 @@ const resp = (corpo, status = 200) => new Response(corpo == null ? null : JSON.s
 const erro = (message, status = 400) => resp({ message }, status)
 const espera = () => new Promise(ok => setTimeout(ok, 250)) // parece rede de verdade
 
-window.__bancoFalso = true
+// os testes de tela usam isto para simular o outro celular mexendo no banco
+window.__bancoFalso = { db: () => db, salvar }
 const real = window.fetch.bind(window)
 window.fetch = async (url, op = {}) => {
   url = String(url)
@@ -88,10 +92,16 @@ window.fetch = async (url, op = {}) => {
   const caminho = u.pathname.replace('/rest/v1/', '')
   if (caminho === 'rpc/gerar_recorrentes') return resp(0)
   if (caminho === 'rpc/receber_fiado') {
+    // banco sem o v4-fiados-historico.sql (os testes ligam isto para ver o app se virar sem ele)
+    if (window.__semHistoricoFiado && ('p_pago_esperado' in corpo || 'p_valor_esperado' in corpo))
+      return erro('Could not find the function public.receber_fiado(p_data, p_forma, p_id, p_pago_esperado, p_valor_esperado) in the schema cache', 404)
     // mesma regra do v4-fiados-parcial.sql: sem p_valor recebe tudo o que falta
     const i = db.fiados.findIndex(f => f.id === corpo.p_id)
     if (i < 0) return erro('Esse fiado já foi recebido ou excluído.')
     const f = db.fiados[i]
+    if ((corpo.p_pago_esperado != null && corpo.p_pago_esperado !== (f.pago || 0)) ||
+        (corpo.p_valor_esperado != null && corpo.p_valor_esperado !== f.valor))
+      return erro('Esse fiado mudou agora há pouco (outro pagamento ou edição). Confira a lista e tente de novo.')
     if (!corpo.p_data || corpo.p_data < f.data || corpo.p_data > iso(new Date()))
       return erro('A data do pagamento não pode ser antes da entrega nem no futuro.')
     const falta = Math.round(f.valor * 100) - Math.round((f.pago || 0) * 100)
@@ -99,7 +109,7 @@ window.fetch = async (url, op = {}) => {
     if (v <= 0 || v > falta) return erro('O valor pago tem que ser maior que zero e no máximo o que falta.')
     const l = { id: ++db.seq, tipo: 'entrada', valor: v / 100, categoria_id: f.categoria_id,
       descricao: `${f.nome.trim()} · ${f.descricao.trim()}`.slice(0, 192) + (v < falta ? ' (parte)' : ''), forma_pagamento: corpo.p_forma.trim(),
-      data: corpo.p_data, usuario_id: EU, recorrente_id: null, atualizado_em: 't' + db.seq }
+      data: corpo.p_data, usuario_id: EU, recorrente_id: null, fiado_id: f.id, atualizado_em: 't' + db.seq }
     db.lancamentos.push(l)
     if (v === falta) db.fiados.splice(i, 1)
     else Object.assign(f, { pago: (Math.round((f.pago || 0) * 100) + v) / 100, atualizado_em: 't' + ++db.seq })

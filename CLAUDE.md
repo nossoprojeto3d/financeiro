@@ -2,7 +2,7 @@
 
 ## O que é
 **Nome do app: Financeiro NP3D** (use sempre esse nome: título, ícone na tela de início, manifest).
-PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 4.2.1.
+PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 4.3.0.
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
@@ -36,12 +36,13 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `supabase/v2-ordem.sql`: coluna `ordem` nas categorias (ordem manual, arrastando em Ajustes). Sem ela, o app ordena pelas mais usadas.
 - `supabase/v4-fiados.sql`: fiados (tabela `fiados` e função `receber_fiado`, que apaga o fiado e lança a venda juntos).
 - `supabase/v4-fiados-parcial.sql`: pagar só uma parte do fiado (coluna `pago` e `receber_fiado` com `p_valor`). Depois dele, não rode o `v4-fiados.sql` de novo.
+- `supabase/v4-fiados-historico.sql`: `lancamentos.fiado_id` (de qual fiado veio a venda, para o "Já pagou") e `receber_fiado` com `p_pago_esperado`/`p_valor_esperado` (recusa se o fiado mudou em outro celular). Depois dele, não rode os dois anteriores de novo. A função de receber é uma só; os SQLs de fiado formam uma sequência.
 - `supabase/functions/analise/index.ts`: Edge Function que chama o Gemini. A chave fica no segredo `GEMINI_API_KEY` do Supabase.
 
 ## Banco (Supabase)
 - `perfis` (id = usuário do Auth, nome, cor). Só quem tem perfil acessa algo (função `is_membro()`).
 - `categorias` (nome, tipo `entrada`/`saida`, natureza, ativa). Naturezas: entrada = `venda`, `aporte`, `outra`; saída = `variavel`, `fixa`, `investimento`. Na interface aparecem como Venda, Dinheiro colocado, Outra entrada, Gasto de produção, Conta fixa, Equipamento.
-- `lancamentos` (tipo, valor, categoria_id, descricao, forma_pagamento, data, usuario_id, recorrente_id).
+- `lancamentos` (tipo, valor, categoria_id, descricao, forma_pagamento, data, usuario_id, recorrente_id, fiado_id). `fiado_id` = venda que veio de um fiado (sem chave estrangeira: o fiado some ao ser quitado).
 - `recorrentes` (valor, dia_mes, inicio, gerado_ate, ativa...). O app chama `rpc/gerar_recorrentes` ao abrir; lançamento gerado que for apagado não volta.
 - `fiados` (nome, valor = total da compra, pago = quanto já pagou, categoria_id, descricao, data da entrega, usuario_id). Não entram em nenhuma conta; o `rpc/receber_fiado` vira Venda na data do pagamento (com `p_valor`, só uma parte: a venda leva "(parte)" e o fiado fica com o que falta). Sem a tabela, o app segue sem fiados.
 - Cadastro de novos usuários fica desligado no Supabase.
@@ -50,7 +51,7 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 ## Comportamentos importantes
 - O app abre na hora com os últimos dados guardados no celular (`caixa_cache`) e atualiza por trás; só busca antes de mostrar logo depois de entrar com a senha. Atualiza sozinho a cada 30 s com o app aberto e na hora em que volta para a tela, sem interromper um formulário aberto.
 - **Lançar (desde a 4.0):** o Início é um painel (saldo, vendas do mês contra a meta mínima, atalhos de Entrada/Saída e últimos lançamentos). O lançamento abre pelo + da barra inferior (tela cheia) ou pelos atalhos; no computador fica fixo à direita do Início e aceita os números do teclado físico. O valor é sempre digitado no teclado numérico do próprio app (o do iPhone cobria o botão). Valor, categoria e descrição são obrigatórios; data, repetir, pagamento e quem fez ficam em "Detalhes". Tocar num lançamento abre a edição.
-- **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" na tela "A receber" (o cartão do Início leva até ela). No "Recebeu" dá para receber tudo ou só uma parte (desde a 4.2); o que falta = valor − pago, sempre em centavos (`falta()` e `totalFalta()` em `fiados.js`). A Venda criada leva "Nome · o que levou" na descrição, com "(parte)" quando não quita.
+- **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" na tela "A receber" (o cartão do Início leva até ela). No "Recebeu" dá para receber tudo ou só uma parte (desde a 4.2); o que falta = valor − pago, sempre em centavos (`falta()` e `totalFalta()` em `fiados.js`). A Venda criada leva "Nome · o que levou" na descrição, com "(parte)" quando não quita. O Recebeu mostra o que já foi pago ("Já pagou") e manda ao banco o pago/valor que a tela viu: se outro celular mexeu no fiado antes, o banco recusa ("Esse fiado mudou agora há pouco…"), a lista recarrega e o painel fecha. Sem o `v4-fiados-historico.sql`, o app tenta de novo sem essa conferência. A Gestão mostra "A receber agora" (valor de agora, não muda com o período).
 - **Meta mínima:** sempre pela média dos últimos 3 meses, igual no Início e na Gestão.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.
@@ -77,7 +78,7 @@ Usado pelo `/conferir-site`. **O banco é o de verdade, com o dinheiro real da e
 1. A tela de login abre sem erros no console e sem violação de CSP.
 2. `manifest.json` e `sw.js` carregam; o nome "Financeiro NP3D" aparece no título e no manifest.
 3. Layout do iPhone (390×844): nada vazando, navegação inferior visível.
-4. Se o usuário estiver logado: abrir Início, Histórico, Gestão e Ajustes sem tocar em "Lançar", "Excluir" ou "Salvar". Os gráficos aparecem.
+4. Se o usuário estiver logado: abrir Início, Histórico, Gestão e Ajustes sem tocar em "Lançar", "Excluir" ou "Salvar". Os gráficos aparecem. O cartão "A receber" do Início abre a tela "A receber" (só olhar: não tocar em "Recebeu", "Anotar fiado" nem nos nomes).
 5. `npm test` e `npm run test:e2e` em `app/` passando.
 6. Antes de publicar: `CACHE` no `app/public/sw.js` e `VERSAO` no `app/src/lib/estado.svelte.js` foram aumentados, e o build foi gerado (`npm run build` em `app/`).
 7. Backup do banco em dia: `npm run conferir-backup` em `app/` mostra "✅ Backup do banco em dia". Se mostrar "⚠️ O BACKUP DO BANCO ESTÁ PARADO", avise o Junior com destaque: provavelmente a senha do banco mudou e o segredo `SUPABASE_DB_URL` precisa ser atualizado (o próprio aviso traz o link).

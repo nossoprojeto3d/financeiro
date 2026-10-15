@@ -55,3 +55,13 @@ test('fora do Início, o lançamento abre numa gaveta que não corta o botão', 
   const b = await gaveta.getByRole('button', { name: 'Lançar entrada' }).boundingBox()
   expect(b.y + b.height).toBeLessThanOrEqual(g.y + g.height + 1)
 })
+
+test('Esc cancela o modo fiado no painel do computador', async ({ page }) => {
+  await painel(page).getByRole('button', { name: /Detalhes/ }).click()
+  await page.getByRole('dialog', { name: 'Detalhes' }).getByRole('button', { name: /Ainda não recebi/ }).click()
+  await page.getByRole('dialog', { name: 'Detalhes' }).getByRole('button', { name: 'Pronto' }).click()
+  await expect(painel(page).getByText('Novo fiado')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(painel(page).getByText('Novo fiado')).toBeHidden()
+  await expect(painel(page).getByRole('radio', { name: 'Entrada' })).toBeVisible()
+})

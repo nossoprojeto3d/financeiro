@@ -48,7 +48,8 @@
   // No computador, os números do teclado físico também funcionam
   function teclaFisica(e) {
     if (!f || modo !== 'painel' || folha) return
-    if (e.key === 'Escape' && !fixo) return cancelar()
+    // no painel fixo, Esc só cancela o que tem X (edição ou fiado)
+    if (e.key === 'Escape' && (!fixo || f.id || f.fiado)) return cancelar()
     if (e.target.matches?.('input, textarea, select')) return
     if (/^[0-9]$/.test(e.key)) { tecla(e.key); e.preventDefault() }
     else if (e.key === 'Backspace') { tecla('apagar'); e.preventDefault() }

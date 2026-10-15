@@ -30,3 +30,11 @@ test('nada vaza para os lados da tela', async ({ page }) => {
     expect(largura[0], `tela ${tela}`).toBeLessThanOrEqual(largura[1])
   }
 })
+
+test('a Gestão mostra quanto há a receber e leva para a lista', async ({ page }) => {
+  await ir(page, 'Gestão')
+  const linha = page.getByRole('button', { name: /^A receber agora/ })
+  expect((await linha.innerText()).replace(/\s+/g, '')).toContain('R$1.030,50')
+  await linha.click()
+  await expect(page.getByRole('heading', { name: 'A receber' })).toBeVisible()
+})

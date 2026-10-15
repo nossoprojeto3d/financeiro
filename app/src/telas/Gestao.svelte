@@ -1,8 +1,9 @@
 <script>
-  import { Sparkles, Download, TrendingUp, TrendingDown } from '@lucide/svelte'
+  import { Sparkles, Download, TrendingUp, TrendingDown, ChevronRight } from '@lucide/svelte'
   import Dinheiro from '../componentes/Dinheiro.svelte'
   import GraficoMeses from '../componentes/GraficoMeses.svelte'
-  import { S, cat, perfil, avisar, tratarErro, assinaturaAtual } from '../lib/estado.svelte.js'
+  import { S, cat, perfil, avisar, tratarErro, assinaturaAtual, irPara } from '../lib/estado.svelte.js'
+  import { totalFalta, pessoas } from '../lib/fiados.js'
   import { Api } from '../lib/api.js'
   import { analise, porMes, PERIODOS } from '../lib/analise.js'
   import { dadosParaIA, chaveIA, iaSalva, guardarIA } from '../lib/ia.js'
@@ -71,6 +72,18 @@
       <button class="h-10 shrink-0 rounded-full px-4 text-[14px] font-medium transition-colors {S.periodo === v ? 'bg-txt text-fundo' : 'border border-linha text-txt-2'}" onclick={() => (S.periodo = v)}>{r}</button>
     {/each}
   </div>
+
+  <!-- quanto ainda vai entrar dos fiados: é o valor de agora, não muda com o período -->
+  {#if S.fiados.length}
+    {@const n = pessoas(S.fiados)}
+    <button class="flex min-h-11 w-full items-center gap-1.5 rounded-2xl px-1 text-left text-[13px]" onclick={() => irPara('receber')}>
+      <span class="text-txt-2">A receber agora</span>
+      <span class="text-txt-3">·</span>
+      <Dinheiro valor={totalFalta(S.fiados)} class="text-[15px] font-semibold text-txt" />
+      <span class="text-txt-3">· {n} {n === 1 ? 'pessoa' : 'pessoas'}</span>
+      <ChevronRight size={16} class="ml-auto text-txt-3" />
+    </button>
+  {/if}
 
   {#if !a}
     <p class="py-16 text-center text-[15px] text-txt-2">Nenhum lançamento nesse período.</p>

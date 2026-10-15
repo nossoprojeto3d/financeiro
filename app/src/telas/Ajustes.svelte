@@ -41,6 +41,12 @@
   }
   const usos = c => S.lancs.filter(l => l.categoria_id === c.id).length + S.recorrentes.filter(r => r.categoria_id === c.id).length +
     S.fiados.filter(x => x.categoria_id === c.id).length
+  // "3 lançamentos e 1 fiado" (os que se repetem contam como lançamento)
+  function textoUsos(c) {
+    const l = usos(c) - S.fiados.filter(x => x.categoria_id === c.id).length, f = usos(c) - l
+    const partes = [l && `${l} lançamento${l === 1 ? '' : 's'}`, f && `${f} fiado${f === 1 ? '' : 's'}`].filter(Boolean)
+    return partes.join(' e ')
+  }
   async function salvarCat() {
     const f = folha, nome = f.nome.trim()
     if (!nome) return avisar('Dê um nome para a categoria.', 'erro')
@@ -272,7 +278,7 @@
     {#if f.excluindo}
       {@const outras = S.categorias.filter(x => x.tipo === f.c.tipo && x.id !== f.c.id).sort((a, b) => a.nome.localeCompare(b.nome))}
       <div class="mt-5 rounded-2xl bg-sai-fundo/50 p-4">
-        <p class="mb-2 text-[13px] text-txt-2">Mover {usos(f.c)} lançamento{usos(f.c) === 1 ? '' : 's'} para</p>
+        <p class="mb-2 text-[13px] text-txt-2">Mover {textoUsos(f.c)} para</p>
         {#if outras.length}
           <div class="flex flex-wrap gap-2">{#each outras as x}{@render chip(f.destino === x.id, x.nome, () => (f.destino = x.id))}{/each}</div>
         {:else}

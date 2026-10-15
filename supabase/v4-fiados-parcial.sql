@@ -3,6 +3,7 @@
 --  Rode este arquivo inteiro no SQL Editor depois do v4-fiados.sql.
 --  Pode rodar mais de uma vez sem problema. O app antigo continua
 --  funcionando depois dele (sem informar valor, recebe tudo, como antes).
+--  Depois de rodar o v4-fiados-historico.sql, não rode este de novo.
 -- =====================================================================
 
 -- Quanto já foi pago do fiado. O que falta é valor - pago.

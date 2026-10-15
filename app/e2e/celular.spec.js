@@ -18,8 +18,8 @@ test.describe('lançamentos', () => {
     await expect(l).toBeHidden()
     await expect(page.getByText('Pedido teste 123')).toBeVisible()
     // o saldo anima até o valor novo: espera chegar
-    await expect.poll(() => caixa(page)).toContain('R$5.871,40') // 5.825,50 + 45,90
-    expect(antes).toContain('R$5.825,50')
+    await expect.poll(() => caixa(page)).toContain('R$5.991,40') // 5.945,50 + 45,90
+    expect(antes).toContain('R$5.945,50')
   })
 
   test('lançar uma saída', async ({ page }) => {
@@ -32,7 +32,7 @@ test.describe('lançamentos', () => {
     await l.getByRole('button', { name: 'Lançar saída' }).click()
     await aviso(page, 'Saída lançada')
     await expect(page.getByText('Rolo PLA teste')).toBeVisible()
-    await expect.poll(() => caixa(page)).toContain('R$5.805,50')
+    await expect.poll(() => caixa(page)).toContain('R$5.925,50')
   })
 
   test('não deixa lançar sem valor, categoria ou descrição', async ({ page }) => {
@@ -173,5 +173,54 @@ test.describe('fiados', () => {
     await conf.getByRole('button', { name: 'Excluir' }).click()
     await aviso(page, 'Fiado excluído')
     await expect(linha(page, 'Bia')).toHaveCount(0)
+  })
+
+  test('o Recebeu mostra o que já foi pago, com data e forma', async ({ page }) => {
+    await abrirAReceber(page)
+    await linha(page, 'Dona Lúcia').getByRole('button', { name: 'Recebeu' }).click()
+    const r = page.getByRole('dialog', { name: 'Recebeu de Dona Lúcia' })
+    await expect(r.getByText('Já pagou')).toBeVisible()
+    await expect(r.getByText(/ · Pix$/)).toBeVisible()
+    expect(await semEspacos(r)).toContain('120,00')
+    await expect(r.getByRole('button', { name: 'Tudo · R$ 80,00' })).toBeVisible()
+  })
+
+  test('se o outro celular registrar um pagamento antes, recusa e mostra a lista atualizada', async ({ page }) => {
+    await abrirAReceber(page)
+    await linha(page, 'Seu Zé').getByRole('button', { name: 'Recebeu' }).click()
+    const r = page.getByRole('dialog', { name: /^Recebeu de Seu Zé/ })
+    await r.getByRole('button', { name: 'Só uma parte' }).click()
+    await digitarValor(r, '300')
+    await r.getByRole('button', { name: 'Pix' }).click()
+    // enquanto isso, a Thai registra R$ 100 do Seu Zé no celular dela
+    await page.evaluate(() => {
+      const b = window.__bancoFalso, ze = b.db().fiados.find(f => f.id === 6)
+      ze.pago = 100; ze.atualizado_em = 'outro-celular'; b.salvar()
+    })
+    await r.getByRole('button', { name: 'Confirmar R$ 300,00' }).click()
+    await aviso(page, 'Esse fiado mudou agora há pouco (outro pagamento ou edição). Confira a lista e tente de novo.')
+    await expect(r).toBeHidden()
+    await expect(linha(page, 'Seu Zé')).toContainText('pagou R$ 100,00 de R$ 600,00')
+    const vendasDoZe = await page.evaluate(() => window.__bancoFalso.db().lancamentos.filter(l => l.fiado_id === 6).length)
+    expect(vendasDoZe).toBe(0) // não lançou em cima do valor velho
+  })
+
+  test('excluir categoria com fiados diz quantos lançamentos e quantos fiados vão ser movidos', async ({ page }) => {
+    await page.getByRole('navigation').getByRole('button', { name: 'Ajustes' }).click()
+    await page.getByRole('button', { name: 'Entradas' }).click()
+    await page.getByRole('button', { name: /^Encomendas personalizadas/ }).click()
+    await page.getByRole('button', { name: 'Excluir categoria' }).click()
+    await expect(page.getByText(/^Mover \d+ lançamentos e 4 fiados para$/)).toBeVisible()
+  })
+
+  test('com o banco ainda sem o SQL do histórico, receber continua funcionando', async ({ page }) => {
+    await page.evaluate(() => { window.__semHistoricoFiado = true })
+    await abrirAReceber(page)
+    await linha(page, 'João').getByRole('button', { name: 'Recebeu' }).click()
+    const r = page.getByRole('dialog', { name: 'Recebeu de João' })
+    await r.getByRole('button', { name: 'Pix' }).click()
+    await r.getByRole('button', { name: 'Confirmar R$ 150,00' }).click()
+    await aviso(page, 'Recebido · entrou no caixa')
+    await expect(linha(page, 'João')).toHaveCount(0)
   })
 })

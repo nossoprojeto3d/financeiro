@@ -5,9 +5,9 @@
   import Folha from '../componentes/Folha.svelte'
   import Dinheiro from '../componentes/Dinheiro.svelte'
   import Teclado from '../componentes/Teclado.svelte'
-  import { S, irPara, abrirFiado, receberFiado, avisar, tratarErro } from '../lib/estado.svelte.js'
-  import { pessoas, haQuanto, falta, totalFalta } from '../lib/fiados.js'
-  import { cent, fmt, hoje, ontem } from '../lib/formato.js'
+  import { S, irPara, abrirFiado, receberFiado, avisar, tratarErro, MUDOU } from '../lib/estado.svelte.js'
+  import { pessoas, haQuanto, falta, totalFalta, pagamentosDoFiado } from '../lib/fiados.js'
+  import { cent, fmt, hoje, ontem, dataCurta } from '../lib/formato.js'
   import { PAGAMENTOS } from '../lib/dados.js'
 
   const total = $derived(totalFalta(S.fiados))
@@ -24,6 +24,7 @@
   // pagar uma parte só existe com o v4-fiados-parcial.sql no banco (coluna "pago")
   const aceitaParte = $derived(!!rc && 'pago' in rc)
   const valorPago = $derived(parte ? centavos : resta)
+  const jaPagos = $derived(rc ? pagamentosDoFiado(S.lancs, rc.id) : [])
 
   function pedirReceber(fz) { rc = fz; forma = ''; data = hoje(); parte = false; centavos = 0 }
   // recebido ou excluído em outro celular: quando a lista recarrega sem ele, o painel fecha
@@ -51,6 +52,8 @@
       rc = null
     } catch (e) {
       tratarErro(e)
+      // mudou em outro celular: a lista recarrega; fecha para não lançar em cima do valor velho
+      if (e.message === MUDOU) rc = null
     } finally {
       enviando = false
     }
@@ -91,6 +94,17 @@
 
 {#if rc}
   <Folha titulo="Recebeu de {rc.nome}" aoFechar={() => (rc = null)}>
+    {#if jaPagos.length}
+      <div class="mb-5 rounded-2xl bg-sup-2/50 px-4 py-3">
+        <p class="mb-1 text-[13px] text-txt-3">Já pagou</p>
+        {#each jaPagos as p (p.id)}
+          <p class="flex items-center justify-between gap-3 py-0.5 text-[14px] text-txt-2">
+            <span>{dataCurta(p.data)}{p.forma_pagamento ? ` · ${p.forma_pagamento}` : ''}</span>
+            <Dinheiro valor={p.valor} moeda={false} class="text-[14px] font-semibold text-ent" />
+          </p>
+        {/each}
+      </div>
+    {/if}
     {#if aceitaParte}
       <p class="mb-2 text-[13px] text-txt-3">Quanto pagou?</p>
       <div class="grid grid-cols-2 gap-2">

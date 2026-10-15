@@ -7,7 +7,7 @@ import { cent, hoje, deISO, fmt } from './formato.js'
 import { corDaPosicao } from './dados.js'
 import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
 
-export const VERSAO = '4.2.1'
+export const VERSAO = '4.3.0'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app'
@@ -116,7 +116,7 @@ async function buscarRecorrentes() {
 // Sem internet é outro erro e sobe (a lista não some por uma falha de rede).
 async function buscarFiados() {
   try { return ordenarFiados((await Api.fiados()).map(numerico)) }
-  catch (e) { if (!e.auth && /fiados/i.test(e.message)) return null; throw e }
+  catch (e) { if (!e.auth && Api.semTabelaFiados(e)) return null; throw e }
 }
 function usarFiados(lista) {
   S.temFiados = !!lista
@@ -366,6 +366,7 @@ export async function excluirLanc(id) {
 
 /* ---------- Fiados ---------- */
 export const SUMIU = 'Esse fiado já foi recebido ou excluído.'
+export const MUDOU = 'Esse fiado mudou agora há pouco (outro pagamento ou edição). Confira a lista e tente de novo.'
 // Recebido ou excluído em outro celular: tira da lista e traz o que está no banco (a venda, se virou venda)
 function fiadoSumiu(id) {
   S.fiados = S.fiados.filter(x => x.id !== id)
@@ -399,7 +400,8 @@ export async function excluirFiado(id) {
 // valor = só uma parte (null = tudo o que falta). Devolve a venda criada.
 export async function receberFiado(fz, forma, data, valor = null) {
   try {
-    const lanc = numerico(await Api.receberFiado(fz.id, forma, data, valor))
+    const esperado = 'pago' in fz ? { pago: fz.pago, valor: fz.valor } : null
+    const lanc = numerico(await Api.receberFiado(fz.id, forma, data, valor, esperado))
     S.lancs.push(lanc)
     ordenar(S.lancs)
     const resto = cent(falta(fz)) - cent(lanc.valor)
@@ -411,8 +413,8 @@ export async function receberFiado(fz, forma, data, valor = null) {
     guardarCache()
     return lanc
   } catch (e) {
-    // recebido em outro celular (ou a resposta se perdeu e o 2º toque chegou): traz o que está no banco
-    if (e.message === SUMIU) carregarTudo().catch(() => {})
+    // recebido ou mudado em outro celular (ou a resposta se perdeu e o 2º toque chegou): traz o que está no banco
+    if (e.message === SUMIU || e.message === MUDOU) carregarTudo().catch(() => {})
     throw e
   }
 }

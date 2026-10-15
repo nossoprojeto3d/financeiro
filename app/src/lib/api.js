@@ -144,9 +144,11 @@ export const Api = (() => {
   }
 
   const volta = { prefer: 'return=representation' };
+  // o Supabase respondeu que a tabela de fiados não existe (v4-fiados.sql ainda não rodou)
+  const semTabelaFiados = e => /fiados/i.test(e.message) && /could not find the table|does not exist|schema cache/i.test(e.message);
 
   return {
-    configurado, login, sair,
+    configurado, login, sair, semTabelaFiados,
     sessao: () => sessao,
     perfis: () => rest('perfis?select=id,nome,cor&order=nome'),
     categorias: () => rest('categorias?select=*&order=nome'),
@@ -163,7 +165,7 @@ export const Api = (() => {
       await rest(`recorrentes?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } });
       // sem a tabela de fiados no banco (v4-fiados.sql não rodado), segue
       await rest(`fiados?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } })
-        .catch(e => { if (e.auth || !/fiados/i.test(e.message)) throw e; });
+        .catch(e => { if (e.auth || !semTabelaFiados(e)) throw e; });
     },
 
     // V2: recorrentes
@@ -180,10 +182,20 @@ export const Api = (() => {
     // devolve o que apagou: vazio quando o fiado já tinha sido recebido ou excluído em outro celular
     excluirFiado: id => rest(`fiados?id=eq.${id}`, { method: 'DELETE', ...volta }),
     // Cria a venda e apaga o fiado (ou só desconta, se pagou uma parte) no mesmo passo.
-    // Sem valor, recebe tudo o que falta (assim funciona também antes do v4-fiados-parcial.sql).
-    receberFiado: (id, forma, data, valor = null) => rest('rpc/receber_fiado', { method: 'POST',
-      body: { p_id: id, p_forma: forma, p_data: data, ...(valor != null ? { p_valor: valor } : {}) } })
-      .then(r => (Array.isArray(r) ? r[0] : r)),
+    // Sem valor, recebe tudo o que falta. "esperado" = pago e valor que a tela mostrava: o banco
+    // recusa se o fiado mudou nesse meio-tempo (outro celular). Antes do v4-fiados-historico.sql
+    // a função não conhece esses dois campos: aí tenta de novo sem eles (a 1ª chamada nem rodou).
+    receberFiado: async (id, forma, data, valor = null, esperado = null) => {
+      const base = { p_id: id, p_forma: forma, p_data: data, ...(valor != null ? { p_valor: valor } : {}) }
+      const chamar = corpo => rest('rpc/receber_fiado', { method: 'POST', body: corpo }).then(r => (Array.isArray(r) ? r[0] : r))
+      if (!esperado) return chamar(base)
+      try {
+        return await chamar({ ...base, p_pago_esperado: esperado.pago, p_valor_esperado: esperado.valor })
+      } catch (e) {
+        if (e.auth || !/could not find the function/i.test(e.message)) throw e
+        return chamar(base)
+      }
+    },
 
     // V2: análise com IA (Edge Function que guarda a chave do Gemini)
     analisar: async dados => {

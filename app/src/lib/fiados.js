@@ -33,3 +33,8 @@ export const categoriaPadraoFiado = cats => cats.find(c => c.natureza === 'venda
 
 // Quem deve há mais tempo aparece primeiro
 export const ordenarFiados = lista => lista.sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : a.id - b.id))
+
+// Vendas que vieram de um fiado (pagamentos já feitos), da mais antiga para a mais nova.
+// Sem a coluna fiado_id no banco (antes do v4-fiados-historico.sql), não acha nenhuma.
+export const pagamentosDoFiado = (lancs, id) =>
+  lancs.filter(l => l.fiado_id === id).sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : a.id - b.id))
