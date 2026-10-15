@@ -72,6 +72,7 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - IA continua no Gemini grátis (não trocar por API paga).
 - Categorias não têm "arquivar": só criar, editar e excluir. Excluir uma categoria com lançamentos pede outra categoria para recebê-los (e os recorrentes). A coluna `ativa` ficou no banco, mas o app não usa mais.
 - A natureza da categoria fica (aparece como "Conta como"): é ela que alimenta as contas da Gestão (lucro, meta mínima, equipamentos).
+- Descartados por enquanto (out/2026, "não faz sentido pra nós nesse momento"): testes rodando no GitHub Actions, foto do comprovante no lançamento e metas de gasto por categoria. Não sugerir de novo a menos que eles peçam.
 
 ## Roteiro de teste
 Usado pelo `/conferir-site`. **O banco é o de verdade, com o dinheiro real da empresa:** nunca crie, edite ou apague lançamentos, categorias ou recorrentes para testar, e nunca digite senha. Só dá para testar sem login, ou com o usuário logado na própria sessão dele, apenas olhando.
@@ -85,5 +86,5 @@ Usado pelo `/conferir-site`. **O banco é o de verdade, com o dinheiro real da e
 
 Para testar fluxos que gravam sem tocar no banco real, use primeiro `npm run test:e2e` (automático). Para olhar com os próprios olhos, use o modo demonstração (`npm run demo`), que já traz o banco de mentira; não precisa injetar `fetch` falso à mão.
 
-## Próximos passos planejados (V3)
-Metas de gasto por categoria, foto do comprovante no lançamento (Supabase Storage) e lançar sem internet com envio depois.
+## Próximos passos planejados
+Lançar sem internet com envio depois.
