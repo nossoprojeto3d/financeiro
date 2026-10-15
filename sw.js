@@ -1,6 +1,6 @@
 // Service worker: app funciona instalado e abre mesmo sem internet.
 // Ao publicar uma versão nova, mude o número abaixo (e VERSAO em src/lib/estado.svelte.js).
-const CACHE = 'caixa-v4.2.0';
+const CACHE = 'caixa-v4.2.1';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './favicon.svg',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
