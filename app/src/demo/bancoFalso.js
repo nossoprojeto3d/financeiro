@@ -82,7 +82,7 @@ window.fetch = async (url, op = {}) => {
   url = String(url)
   if (!url.startsWith(CONFIG.SUPABASE_URL)) return real(url, op)
   // sem internet (modo avião, ou o teste desligou a rede): igual ao iPhone, a chamada falha
-  if (!navigator.onLine) throw new TypeError('Load failed')
+  if (!navigator.onLine || window.__semRede) throw new TypeError('Load failed')
   await espera()
   const u = new URL(url), m = (op.method || 'GET').toUpperCase()
   const corpo = op.body ? JSON.parse(op.body) : null

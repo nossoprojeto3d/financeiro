@@ -8,10 +8,10 @@ import { corDaPosicao } from './dados.js'
 import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
 import { novoPendente, juntarComFila, lerFila, gravarFila } from './fila.js'
 
-export const VERSAO = '4.4.0'
+export const VERSAO = '4.4.1'
 
 export const S = $state({
-  fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app'
+  fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app' | 'semrede'
   erroLogin: '',
   tela: 'inicio',
   perfil: null,
@@ -249,13 +249,20 @@ function abrirComGuardados() {
 export async function entrar(acabouDeLogar = false) {
   if (!acabouDeLogar && abrirComGuardados()) return
   S.fase = 'carregando'
-  try { await carregarTudo() } catch (e) { return tratarErro(e) }
+  try { await carregarTudo() } catch (e) {
+    // sem internet e nada guardado no celular para mostrar: tela "Sem internet" (tenta de novo sozinha)
+    if (e.rede) { S.fase = 'semrede'; return }
+    return tratarErro(e)
+  }
   S.fase = 'app'
   marcarUso()
   iniciarSync()
   enviarFila().catch(tratarErro)
   if (acabouDeLogar && !Lock.ativo() && await Lock.disponivel()) S.ofertaFaceId = true
 }
+
+// botão "Tentar de novo" da tela Sem internet
+export const tentarEntrarDeNovo = () => entrar(true)
 
 export async function login(email, senha, nome) {
   await Api.login(email, senha)
@@ -572,7 +579,10 @@ export function iniciar() {
     sincronizar() // voltou para o app: confere na hora se tem novidade
   })
   // a internet voltou: manda na hora os lançamentos feitos sem ela
-  addEventListener('online', () => { if (S.fase === 'app') enviarFila().catch(tratarErro) })
+  addEventListener('online', () => {
+    if (S.fase === 'app') enviarFila().catch(tratarErro)
+    else if (S.fase === 'semrede') entrar(true)
+  })
 
   if (!Api.configurado()) { S.erroLogin = 'Falta configurar o banco em src/lib/config.js.'; S.fase = 'login'; return }
   if (!Api.sessao()) { S.fase = 'login'; return }

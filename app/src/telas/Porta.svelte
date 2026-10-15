@@ -1,8 +1,8 @@
 <script>
   // Login (só a senha: a pessoa escolhe quem é), trava com Face ID e carregamento
-  import { Eye, EyeOff, LockKeyhole, ScanFace, ArrowRight } from '@lucide/svelte'
+  import { Eye, EyeOff, LockKeyhole, ScanFace, ArrowRight, CloudOff } from '@lucide/svelte'
   import { CONFIG } from '../lib/config.js'
-  import { S, login, desbloquear, trocarParaSenha } from '../lib/estado.svelte.js'
+  import { S, login, desbloquear, trocarParaSenha, tentarEntrarDeNovo } from '../lib/estado.svelte.js'
 
   const usuarios = CONFIG.USUARIOS || []
   const CORES = ['#F5B83D', '#8FB5FF']
@@ -56,6 +56,14 @@
 <div class="flex min-h-dvh flex-col items-center justify-center px-6 pt-seguro pb-seguro">
   {#if S.fase === 'carregando'}
     <span class="size-8 animate-spin rounded-full border-2 border-ambar/25 border-t-ambar" aria-label="Carregando"></span>
+  {:else if S.fase === 'semrede'}
+    <!-- primeira vez neste celular (ou logo depois da senha) e sem internet: nada guardado para mostrar -->
+    <div class="flex max-w-sm flex-col items-center text-center">
+      <span class="grid size-16 place-items-center rounded-[22px] bg-sup text-txt-2"><CloudOff size={28} /></span>
+      <h1 class="num mt-5 text-[22px] font-semibold">Sem internet</h1>
+      <p class="mt-2 text-[15px] text-txt-2">Conecte o celular à internet. O app tenta de novo sozinho.</p>
+      <button class="mt-7 h-12 w-full rounded-2xl bg-ambar px-8 text-[15px] font-semibold text-fundo" onclick={tentarEntrarDeNovo}>Tentar de novo</button>
+    </div>
   {:else if S.fase === 'trava'}
     <button class="flex w-full max-w-sm flex-1 flex-col items-center justify-center gap-10" onclick={tentar}>
       {@render marca()}
