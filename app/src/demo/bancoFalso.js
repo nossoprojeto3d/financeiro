@@ -44,7 +44,9 @@ function bancoInicial() {
     { id: 3, nome: 'Tia Marta', valor: 35.5, categoria_id: 2, descricao: 'Chaveiro com nome', data: diasAtras(0), usuario_id: EU },
     { id: 4, nome: 'Carlos (vizinho)', valor: 60, categoria_id: 3, descricao: 'Suporte de headset', data: diasAtras(1), usuario_id: THAI },
     { id: 5, nome: 'Bia', valor: 25, categoria_id: 2, descricao: 'Brincos geométricos', data: diasAtras(0), usuario_id: THAI },
-  ].map(f => ({ ...f, atualizado_em: 't0' }))
+    { id: 6, nome: 'Seu Zé (oficina)', valor: 600, categoria_id: 3, descricao: 'Suportes de ferramentas', data: diasAtras(20), usuario_id: EU },
+    { id: 7, nome: 'Dona Lúcia', valor: 200, pago: 120, categoria_id: 3, descricao: 'Topo de bolo', data: diasAtras(8), usuario_id: THAI },
+  ].map(f => ({ pago: 0, ...f, atualizado_em: 't0' }))
   return {
     seq: 1000,
     perfis: [{ id: EU, nome: 'Junior', cor: '#4FE0A5' }, { id: THAI, nome: 'Thai', cor: '#FF7B8B' }],
@@ -86,15 +88,21 @@ window.fetch = async (url, op = {}) => {
   const caminho = u.pathname.replace('/rest/v1/', '')
   if (caminho === 'rpc/gerar_recorrentes') return resp(0)
   if (caminho === 'rpc/receber_fiado') {
+    // mesma regra do v4-fiados-parcial.sql: sem p_valor recebe tudo o que falta
     const i = db.fiados.findIndex(f => f.id === corpo.p_id)
     if (i < 0) return erro('Esse fiado já foi recebido ou excluído.')
-    if (!corpo.p_data || corpo.p_data < db.fiados[i].data || corpo.p_data > iso(new Date()))
+    const f = db.fiados[i]
+    if (!corpo.p_data || corpo.p_data < f.data || corpo.p_data > iso(new Date()))
       return erro('A data do pagamento não pode ser antes da entrega nem no futuro.')
-    const [f] = db.fiados.splice(i, 1)
-    const l = { id: ++db.seq, tipo: 'entrada', valor: f.valor, categoria_id: f.categoria_id,
-      descricao: `${f.nome.trim()} · ${f.descricao.trim()}`.slice(0, 200), forma_pagamento: corpo.p_forma.trim(),
+    const falta = Math.round(f.valor * 100) - Math.round((f.pago || 0) * 100)
+    const v = corpo.p_valor == null ? falta : Math.round(corpo.p_valor * 100)
+    if (v <= 0 || v > falta) return erro('O valor pago tem que ser maior que zero e no máximo o que falta.')
+    const l = { id: ++db.seq, tipo: 'entrada', valor: v / 100, categoria_id: f.categoria_id,
+      descricao: `${f.nome.trim()} · ${f.descricao.trim()}`.slice(0, 192) + (v < falta ? ' (parte)' : ''), forma_pagamento: corpo.p_forma.trim(),
       data: corpo.p_data, usuario_id: EU, recorrente_id: null, atualizado_em: 't' + db.seq }
     db.lancamentos.push(l)
+    if (v === falta) db.fiados.splice(i, 1)
+    else Object.assign(f, { pago: (Math.round((f.pago || 0) * 100) + v) / 100, atualizado_em: 't' + ++db.seq })
     salvar()
     return resp(l)
   }
@@ -105,7 +113,7 @@ window.fetch = async (url, op = {}) => {
   const bate = x => filtros.every(([k, v]) => String(x[k]) === v.slice(3))
   if (m === 'GET') return resp(lista.filter(bate))
   if (m === 'POST') {
-    const novo = { usuario_id: EU, ...corpo, id: ++db.seq, atualizado_em: 't' + db.seq }
+    const novo = { usuario_id: EU, ...(caminho === 'fiados' ? { pago: 0 } : {}), ...corpo, id: ++db.seq, atualizado_em: 't' + db.seq }
     lista.push(novo); salvar()
     return resp([novo], 201)
   }

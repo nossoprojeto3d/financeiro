@@ -3,10 +3,9 @@
   import { ChevronRight } from '@lucide/svelte'
   import Dinheiro from './Dinheiro.svelte'
   import { S, irPara } from '../lib/estado.svelte.js'
-  import { pessoas } from '../lib/fiados.js'
-  import { soma } from '../lib/formato.js'
+  import { pessoas, totalFalta } from '../lib/fiados.js'
 
-  const total = $derived(soma(S.fiados))
+  const total = $derived(totalFalta(S.fiados))
   const n = $derived(pessoas(S.fiados))
 </script>
 

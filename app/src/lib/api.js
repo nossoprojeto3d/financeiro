@@ -179,8 +179,10 @@ export const Api = (() => {
     editarFiado: (id, d) => rest(`fiados?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
     // devolve o que apagou: vazio quando o fiado já tinha sido recebido ou excluído em outro celular
     excluirFiado: id => rest(`fiados?id=eq.${id}`, { method: 'DELETE', ...volta }),
-    // Apaga o fiado e cria a venda no mesmo passo (função receber_fiado do banco)
-    receberFiado: (id, forma, data) => rest('rpc/receber_fiado', { method: 'POST', body: { p_id: id, p_forma: forma, p_data: data } })
+    // Cria a venda e apaga o fiado (ou só desconta, se pagou uma parte) no mesmo passo.
+    // Sem valor, recebe tudo o que falta (assim funciona também antes do v4-fiados-parcial.sql).
+    receberFiado: (id, forma, data, valor = null) => rest('rpc/receber_fiado', { method: 'POST',
+      body: { p_id: id, p_forma: forma, p_data: data, ...(valor != null ? { p_valor: valor } : {}) } })
       .then(r => (Array.isArray(r) ? r[0] : r)),
 
     // V2: análise com IA (Edge Function que guarda a chave do Gemini)

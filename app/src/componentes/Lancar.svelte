@@ -62,6 +62,7 @@
     // toque duplo rápido: o botão só desativa na próxima atualização da tela, então trava aqui
     if (enviando) return
     if (!f.centavos) return avisar('Digite o valor.', 'erro')
+    if (f.fiado && f.pago && f.centavos <= Math.round(f.pago * 100)) return avisar(`O valor tem que ser maior que o já pago (${fmt(f.pago)}).`, 'erro')
     if (f.fiado && !f.nome.trim()) { marcarFalta('nome'); campoNome?.focus(); return avisar('Escreva quem deve.', 'erro') }
     if (!f.categoria_id) { marcarFalta('cat'); return avisar('Escolha a categoria.', 'erro') }
     if (!f.descricao.trim()) { marcarFalta('desc'); campoDesc?.focus(); return avisar('Escreva a descrição.', 'erro') }
@@ -153,7 +154,9 @@
       <div class="transition-colors {f.centavos ? corTipo : 'text-txt-3'}">
         <Dinheiro valor={f.centavos / 100} class="text-[clamp(44px,12vw,60px)] leading-none font-semibold" />
       </div>
-      {#if c}
+      {#if f.fiado && f.pago}
+        <p class="mt-2.5 text-[13px] text-txt-3">Já pagou {fmt(f.pago)} · falta <span class="text-txt-2">{fmt(Math.max(0, f.centavos - Math.round(f.pago * 100)) / 100)}</span></p>
+      {:else if c}
         <p class="mt-2.5 text-[13px] text-txt-3">{nomeNatureza(c.natureza)}</p>
       {/if}
     </div>
