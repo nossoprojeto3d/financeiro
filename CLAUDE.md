@@ -2,7 +2,7 @@
 
 ## O que é
 **Nome do app: Financeiro NP3D** (use sempre esse nome: título, ícone na tela de início, manifest).
-PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 4.1.0.
+PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 4.2.0.
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
@@ -34,6 +34,7 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `supabase/v3-seguranca.sql`: reforços de segurança (cor válida, tamanhos, data não futura, função com caminho fixo, índices).
 - `supabase/v2-ordem.sql`: coluna `ordem` nas categorias (ordem manual, arrastando em Ajustes). Sem ela, o app ordena pelas mais usadas.
 - `supabase/v4-fiados.sql`: fiados (tabela `fiados` e função `receber_fiado`, que apaga o fiado e lança a venda juntos).
+- `supabase/v4-fiados-parcial.sql`: pagar só uma parte do fiado (coluna `pago` e `receber_fiado` com `p_valor`). Depois dele, não rode o `v4-fiados.sql` de novo.
 - `supabase/functions/analise/index.ts`: Edge Function que chama o Gemini. A chave fica no segredo `GEMINI_API_KEY` do Supabase.
 
 ## Banco (Supabase)
@@ -41,13 +42,13 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `categorias` (nome, tipo `entrada`/`saida`, natureza, ativa). Naturezas: entrada = `venda`, `aporte`, `outra`; saída = `variavel`, `fixa`, `investimento`. Na interface aparecem como Venda, Dinheiro colocado, Outra entrada, Gasto de produção, Conta fixa, Equipamento.
 - `lancamentos` (tipo, valor, categoria_id, descricao, forma_pagamento, data, usuario_id, recorrente_id).
 - `recorrentes` (valor, dia_mes, inicio, gerado_ate, ativa...). O app chama `rpc/gerar_recorrentes` ao abrir; lançamento gerado que for apagado não volta.
-- `fiados` (nome, valor, categoria_id, descricao, data da entrega, usuario_id). Não entram em nenhuma conta; o `rpc/receber_fiado` vira Venda na data do pagamento. Sem a tabela, o app segue sem fiados.
+- `fiados` (nome, valor = total da compra, pago = quanto já pagou, categoria_id, descricao, data da entrega, usuario_id). Não entram em nenhuma conta; o `rpc/receber_fiado` vira Venda na data do pagamento (com `p_valor`, só uma parte: a venda leva "(parte)" e o fiado fica com o que falta). Sem a tabela, o app segue sem fiados.
 - Cadastro de novos usuários fica desligado no Supabase.
 
 ## Comportamentos importantes
 - O app abre na hora com os últimos dados guardados no celular (`caixa_cache`) e atualiza por trás; só busca antes de mostrar logo depois de entrar com a senha. Atualiza sozinho a cada 30 s com o app aberto e na hora em que volta para a tela, sem interromper um formulário aberto.
 - **Lançar (desde a 4.0):** o Início é um painel (saldo, vendas do mês contra a meta mínima, atalhos de Entrada/Saída e últimos lançamentos). O lançamento abre pelo + da barra inferior (tela cheia) ou pelos atalhos; no computador fica fixo à direita do Início e aceita os números do teclado físico. O valor é sempre digitado no teclado numérico do próprio app (o do iPhone cobria o botão). Valor, categoria e descrição são obrigatórios; data, repetir, pagamento e quem fez ficam em "Detalhes". Tocar num lançamento abre a edição.
-- **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" na tela "A receber" (o cartão do Início leva até ela). O pagamento é sempre do valor todo; pagamento parcial = editar o valor. A Venda criada leva "Nome · o que levou" na descrição.
+- **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" na tela "A receber" (o cartão do Início leva até ela). No "Recebeu" dá para receber tudo ou só uma parte (desde a 4.2); o que falta = valor − pago, sempre em centavos (`falta()` e `totalFalta()` em `fiados.js`). A Venda criada leva "Nome · o que levou" na descrição, com "(parte)" quando não quita.
 - **Meta mínima:** sempre pela média dos últimos 3 meses, igual no Início e na Gestão.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.

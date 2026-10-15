@@ -3,6 +3,8 @@
 --  Quem levou e ainda não pagou. Rode este arquivo inteiro no SQL Editor
 --  depois dos outros (setup, v2, v2-ordem, v3-seguranca).
 --  Pode rodar mais de uma vez sem problema.
+--  Depois de rodar o v4-fiados-parcial.sql, não rode este de novo (ele
+--  recriaria a função antiga de receber ao lado da nova).
 -- =====================================================================
 
 create table if not exists public.fiados (

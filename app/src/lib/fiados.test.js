@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pessoas, nomesUsados, haQuanto, categoriaPadraoFiado, ordenarFiados } from './fiados.js'
+import { pessoas, nomesUsados, haQuanto, categoriaPadraoFiado, ordenarFiados, falta, totalFalta } from './fiados.js'
 
 describe('pessoas', () => {
   it('conta nomes diferentes ignorando maiúsculas, acentos e espaços', () => {
@@ -39,5 +39,18 @@ describe('ordenarFiados', () => {
   it('entrega mais antiga primeiro e empate pelo id', () => {
     const lista = [{ id: 3, data: '2026-10-10' }, { id: 1, data: '2026-10-12' }, { id: 2, data: '2026-10-10' }]
     expect(ordenarFiados(lista).map(f => f.id)).toEqual([2, 3, 1])
+  })
+})
+
+describe('falta e totalFalta (pagamento parcial)', () => {
+  it('falta = valor menos o que já foi pago, em centavos', () => {
+    expect(falta({ valor: 600, pago: 300 })).toBe(300)
+    expect(falta({ valor: 0.3, pago: 0.1 })).toBe(0.2)
+  })
+  it('sem a coluna pago (banco antigo), falta o valor todo', () => {
+    expect(falta({ valor: 80 })).toBe(80)
+  })
+  it('total a receber soma só o que falta', () => {
+    expect(totalFalta([{ valor: 600, pago: 300 }, { valor: 80 }, { valor: 0.1, pago: 0 }])).toBe(380.1)
   })
 })

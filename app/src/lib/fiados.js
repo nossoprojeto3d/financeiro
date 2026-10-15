@@ -1,5 +1,10 @@
 // Fiados: quem levou e ainda não pagou. Contas puras (sem banco nem tela).
-import { deISO } from './formato.js'
+import { deISO, cent } from './formato.js'
+
+// Quanto ainda falta pagar (valor da compra menos o que já pagou), sempre em centavos.
+// Sem a coluna "pago" no banco (antes do v4-fiados-parcial.sql), falta o valor todo.
+export const falta = f => (cent(f.valor) - cent(f.pago || 0)) / 100
+export const totalFalta = lista => lista.reduce((a, f) => a + cent(falta(f)), 0) / 100
 
 // O mesmo nome escrito de jeitos diferentes ("Ana", " ana ", "Ána") é uma pessoa só
 const chave = nome => String(nome || '').trim().toLocaleLowerCase('pt-BR').normalize('NFD').replace(/[̀-ͯ]/g, '')

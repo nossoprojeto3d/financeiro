@@ -5,9 +5,9 @@ import { Api } from './api.js'
 import { Lock } from './lock.js'
 import { cent, hoje, deISO, fmt } from './formato.js'
 import { corDaPosicao } from './dados.js'
-import { ordenarFiados, categoriaPadraoFiado } from './fiados.js'
+import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
 
-export const VERSAO = '4.1.0'
+export const VERSAO = '4.2.0'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app'
@@ -54,7 +54,7 @@ export const perfil = id => indice('perfil', S.perfis).get(id)
 // Cada categoria ganha uma cor de filamento pela posição (ordem de criação)
 const comCores = lista => [...lista].sort((a, b) => a.id - b.id).map((c, i) => ({ ...c, cor: corDaPosicao(i) }))
 const semCor = lista => lista.map(({ cor, ...c }) => c)
-const numerico = l => ({ ...l, valor: Number(l.valor) })
+const numerico = l => ({ ...l, valor: Number(l.valor), ...('pago' in l ? { pago: Number(l.pago) } : {}) })
 const ordenar = lista => lista.sort((a, b) => (b.data > a.data ? 1 : b.data < a.data ? -1 : b.id - a.id))
 
 // Ordem manual (coluna "ordem", do v2-ordem.sql). Sem ela no banco, as mais usadas primeiro.
@@ -320,7 +320,7 @@ export function abrirFiado(fz = null) {
   S.lancar = fz
     ? { id: fz.id, tipo: 'entrada', centavos: Math.round(fz.valor * 100), categoria_id: fz.categoria_id,
         data: fz.data, descricao: fz.descricao, forma_pagamento: '', usuario_id: fz.usuario_id,
-        repetir: false, recorrente_id: null, fiado: true, nome: fz.nome }
+        repetir: false, recorrente_id: null, fiado: true, nome: fz.nome, pago: fz.pago || 0 }
     : { id: null, tipo: 'entrada', centavos: 0, categoria_id: categoriaPadraoFiado(categoriasDoTipo('entrada'))?.id ?? null,
         data: hoje(), descricao: '', forma_pagamento: '', usuario_id: S.perfil.id, repetir: false, fiado: true, nome: '' }
 }
@@ -396,13 +396,20 @@ export async function excluirFiado(id) {
   guardarCache()
 }
 
-export async function receberFiado(fz, forma, data) {
+// valor = só uma parte (null = tudo o que falta). Devolve a venda criada.
+export async function receberFiado(fz, forma, data, valor = null) {
   try {
-    const lanc = await Api.receberFiado(fz.id, forma, data)
-    S.lancs.push(numerico(lanc))
+    const lanc = numerico(await Api.receberFiado(fz.id, forma, data, valor))
+    S.lancs.push(lanc)
     ordenar(S.lancs)
-    S.fiados = S.fiados.filter(x => x.id !== fz.id)
+    const resto = cent(falta(fz)) - cent(lanc.valor)
+    if (resto > 0) {
+      // pagou uma parte: o fiado fica, com o que falta
+      const x = S.fiados.find(x => x.id === fz.id)
+      if (x) x.pago = (cent(x.pago || 0) + cent(lanc.valor)) / 100
+    } else S.fiados = S.fiados.filter(x => x.id !== fz.id)
     guardarCache()
+    return lanc
   } catch (e) {
     // recebido em outro celular (ou a resposta se perdeu e o 2º toque chegou): traz o que está no banco
     if (e.message === SUMIU) carregarTudo().catch(() => {})
