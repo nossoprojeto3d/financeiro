@@ -44,6 +44,7 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `recorrentes` (valor, dia_mes, inicio, gerado_ate, ativa...). O app chama `rpc/gerar_recorrentes` ao abrir; lançamento gerado que for apagado não volta.
 - `fiados` (nome, valor = total da compra, pago = quanto já pagou, categoria_id, descricao, data da entrega, usuario_id). Não entram em nenhuma conta; o `rpc/receber_fiado` vira Venda na data do pagamento (com `p_valor`, só uma parte: a venda leva "(parte)" e o fiado fica com o que falta). Sem a tabela, o app segue sem fiados.
 - Cadastro de novos usuários fica desligado no Supabase.
+- **Backup:** toda madrugada (3h) o GitHub Actions do repositório **privado** `nossoprojeto3d/financeiro-backup` (cópia local em `~/Claude/financeiro-backup`) copia o banco inteiro com `supabase db dump` para `banco/` (papeis, estrutura, dados). Cada dia que muda vira um commit, então o histórico guarda todas as versões. O endereço do banco com a senha fica no segredo `SUPABASE_DB_URL` (Session pooler, porta 5432); trocou a senha do banco, atualize o segredo. Nunca ponha o backup neste repositório, que é público. Como restaurar: README de lá.
 
 ## Comportamentos importantes
 - O app abre na hora com os últimos dados guardados no celular (`caixa_cache`) e atualiza por trás; só busca antes de mostrar logo depois de entrar com a senha. Atualiza sozinho a cada 30 s com o app aberto e na hora em que volta para a tela, sem interromper um formulário aberto.
