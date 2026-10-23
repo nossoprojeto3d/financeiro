@@ -39,13 +39,15 @@
       ? { tipo: 'cat', c, nome: c.nome, natureza: c.natureza, catTipo: c.tipo, excluindo: false, destino: null }
       : { tipo: 'cat', c: null, nome: '', natureza: NATUREZAS[aba][0][0], catTipo: aba }
   }
-  const usos = c => S.lancs.filter(l => l.categoria_id === c.id).length + S.recorrentes.filter(r => r.categoria_id === c.id).length +
-    S.fiados.filter(x => x.categoria_id === c.id).length
-  // "3 lançamentos e 1 fiado" (os que se repetem contam como lançamento)
+  const da = (lista, c) => lista.filter(x => x.categoria_id === c.id).length
+  // contas a pagar contam a conta do mês e as regras que geram as próximas
+  const usos = c => da(S.lancs, c) + da(S.recorrentes, c) + da(S.fiados, c) + da(S.contas, c) + da(S.regrasContas, c)
+  // "3 lançamentos, 1 fiado e 2 contas a pagar" (os que se repetem contam como lançamento)
   function textoUsos(c) {
-    const l = usos(c) - S.fiados.filter(x => x.categoria_id === c.id).length, f = usos(c) - l
-    const partes = [l && `${l} lançamento${l === 1 ? '' : 's'}`, f && `${f} fiado${f === 1 ? '' : 's'}`].filter(Boolean)
-    return partes.join(' e ')
+    const l = da(S.lancs, c) + da(S.recorrentes, c), f = da(S.fiados, c), ct = da(S.contas, c) + da(S.regrasContas, c)
+    const partes = [l && `${l} lançamento${l === 1 ? '' : 's'}`, f && `${f} fiado${f === 1 ? '' : 's'}`,
+      ct && `${ct} conta${ct === 1 ? '' : 's'} a pagar`].filter(Boolean)
+    return partes.length > 1 ? `${partes.slice(0, -1).join(', ')} e ${partes.at(-1)}` : partes[0]
   }
   async function salvarCat() {
     const f = folha, nome = f.nome.trim()

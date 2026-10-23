@@ -7,8 +7,9 @@ import { cent, hoje, deISO, fmt } from './formato.js'
 import { corDaPosicao } from './dados.js'
 import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
 import { novoPendente, juntarComFila, lerFila, gravarFila } from './fila.js'
+import { ordenarContas } from './contas.js'
 
-export const VERSAO = '4.4.1'
+export const VERSAO = '5.0.0'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app' | 'semrede'
@@ -21,6 +22,9 @@ export const S = $state({
   recorrentes: [],
   fiados: [],
   temFiados: false, // a tabela de fiados existe no banco (v4-fiados.sql)
+  contas: [], // contas a pagar (v5-contas.sql)
+  regrasContas: [], // contas que se repetem todo mês
+  temContas: false,
   lancar: null, // formulário de lançamento aberto (null = fechado)
   periodo: 'mes',
   aviso: null,
@@ -127,12 +131,29 @@ function usarFiados(lista) {
 }
 const assinaturaFiados = lista => lista.map(f => `${f.id}:${f.atualizado_em}`).join(',')
 
+// Contas a pagar (v5-contas.sql): sem as tabelas no banco, o app segue sem elas.
+let contasGeradasEm = 0
+async function buscarContas(gerar = false) {
+  try {
+    if (gerar || Date.now() - contasGeradasEm > 3600e3) { await Api.gerarContas(); contasGeradasEm = Date.now() }
+    const [c, r] = await Promise.all([Api.contas(), Api.contasRegras()])
+    return { contas: ordenarContas(c.map(numerico)), regras: r.map(numerico) }
+  } catch (e) { if (!e.auth && Api.semTabelaContas(e)) return null; throw e }
+}
+function usarContas(x) {
+  S.temContas = !!x
+  S.contas = x?.contas || []
+  S.regrasContas = x?.regras || []
+}
+const assinaturaContas = x => x ? [...x.contas, ...x.regras.map(r => ({ ...r, id: 'r' + r.id }))].map(c => `${c.id}:${c.atualizado_em}`).join(',') : '-'
+
 function guardarCache() {
   try {
     localStorage.setItem('caixa_cache', JSON.stringify({
       p: $state.snapshot(S.perfis), c: semCor($state.snapshot(S.categorias)),
       l: $state.snapshot(S.lancs).filter(l => !l.pendente), rc: $state.snapshot(S.recorrentes),
       f: $state.snapshot(S.fiados), tf: S.temFiados,
+      ct: $state.snapshot(S.contas), rg: $state.snapshot(S.regrasContas), tc: S.temContas,
     }))
   } catch (_) {}
 }
@@ -140,11 +161,12 @@ function guardarCache() {
 export async function carregarTudo() {
   try {
     await gerarRecorrentes(true)
-    const [p, c, l, rc, fz] = await Promise.all([Api.perfis(), Api.categorias(), Api.lancamentos(), buscarRecorrentes(), buscarFiados()])
+    const [p, c, l, rc, fz, ct] = await Promise.all([Api.perfis(), Api.categorias(), Api.lancamentos(), buscarRecorrentes(), buscarFiados(), buscarContas(true)])
     S.perfis = p
     S.categorias = comCores(c)
     S.recorrentes = rc
     usarFiados(fz)
+    usarContas(ct)
     S.lancs = ordenar(juntarComFila(l.map(numerico), lerFila()))
     S.offline = false
     S.carregadoEm = Date.now()
@@ -154,7 +176,7 @@ export async function carregarTudo() {
     const cache = JSON.parse(localStorage.getItem('caixa_cache') || 'null')
     if (!cache) throw e
     S.perfis = cache.p; S.categorias = comCores(cache.c); S.lancs = ordenar(juntarComFila(cache.l, lerFila())); S.recorrentes = cache.rc || []
-    S.fiados = cache.f || []; S.temFiados = !!cache.tf
+    S.fiados = cache.f || []; S.temFiados = !!cache.tf; usarContas(cache.tc ? { contas: cache.ct || [], regras: cache.rg || [] } : null)
     S.offline = true
     avisar('Sem conexão. Mostrando os últimos dados salvos.', 'erro')
   }
@@ -195,14 +217,15 @@ export async function sincronizar() {
   try {
     await enviarFila()
     await gerarRecorrentes()
-    const [c, l, rc, fz] = await Promise.all([Api.categorias(), Api.lancamentos(), buscarRecorrentes(), buscarFiados()])
+    const [c, l, rc, fz, ct] = await Promise.all([Api.categorias(), Api.lancamentos(), buscarRecorrentes(), buscarFiados(), buscarContas()])
     const novos = ordenar(l.map(numerico))
     S.recorrentes = rc
     S.offline = false
     S.carregadoEm = Date.now()
     const mudouLancs = assinatura(novos, c) !== assinatura(S.lancs.filter(l => !l.pendente), S.categorias)
     const mudouFiados = !!fz !== S.temFiados || assinaturaFiados(fz || []) !== assinaturaFiados(S.fiados)
-    if (!mudouLancs && !mudouFiados) return
+    const mudouContas = assinaturaContas(ct) !== (S.temContas ? assinaturaContas({ contas: S.contas, regras: S.regrasContas }) : '-')
+    if (!mudouLancs && !mudouFiados && !mudouContas) return
     if (ocupado()) return
 
     const antes = new Set(S.lancs.map(x => x.id))
@@ -212,6 +235,7 @@ export async function sincronizar() {
     S.lancs = ordenar(juntarComFila(novos, lerFila()))
     S.categorias = comCores(c)
     usarFiados(fz)
+    usarContas(ct)
     guardarCache()
     if (deOutros.length === 1) {
       const n = deOutros[0]
@@ -237,7 +261,7 @@ function abrirComGuardados() {
   const eu = cache.p.find(p => p.id === Api.sessao().user.id)
   if (!eu) return false
   S.perfis = cache.p; S.categorias = comCores(cache.c); S.lancs = ordenar(juntarComFila(cache.l, lerFila())); S.recorrentes = cache.rc || []
-  S.fiados = cache.f || []; S.temFiados = !!cache.tf
+  S.fiados = cache.f || []; S.temFiados = !!cache.tf; usarContas(cache.tc ? { contas: cache.ct || [], regras: cache.rg || [] } : null)
   S.perfil = eu
   S.fase = 'app'
   marcarUso()
@@ -327,6 +351,17 @@ export function abrirLancar(tipo = 'entrada', lanc = null, { repetir = false } =
 }
 export const fecharLancar = () => { S.lancar = null }
 
+// Formulário no modo conta a pagar: sem argumento anota uma nova; com uma conta, edita.
+// A data do formulário é o vencimento; "repetir" = a conta volta todo mês (regra).
+export function abrirConta(ct = null) {
+  S.lancar = ct
+    ? { id: ct.id, tipo: 'saida', centavos: Math.round(ct.valor * 100), categoria_id: ct.categoria_id, data: ct.vencimento,
+        descricao: ct.descricao, forma_pagamento: '', usuario_id: ct.usuario_id, repetir: !!ct.regra_id, regra_id: ct.regra_id,
+        recorrente_id: null, fiado: false, conta: true, nome: '' }
+    : { id: null, tipo: 'saida', centavos: 0, categoria_id: null, data: hoje(), descricao: '', forma_pagamento: '',
+        usuario_id: S.perfil.id, repetir: false, regra_id: null, fiado: false, conta: true, nome: '' }
+}
+
 // Formulário no modo fiado: sem argumento anota um novo; com um fiado, edita
 export function abrirFiado(fz = null) {
   S.lancar = fz
@@ -347,6 +382,7 @@ export function irPara(t) {
 
 export async function salvarLanc(f) {
   if (f.fiado) return salvarFiado(f)
+  if (f.conta) return salvarConta(f)
   const dados = {
     tipo: f.tipo, valor: f.centavos / 100, categoria_id: f.categoria_id, data: f.data,
     descricao: f.descricao.trim() || null, forma_pagamento: f.forma_pagamento || null, usuario_id: f.usuario_id,
@@ -435,6 +471,61 @@ export async function enviarFila() {
   else if (recusados) avisar('Um lançamento feito sem internet não foi aceito. Toque nele para corrigir.', 'erro')
 }
 
+/* ---------- Contas a pagar ---------- */
+export const CONTA_SUMIU = 'Essa conta já foi paga ou excluída.'
+export const CONTA_MUDOU = 'Essa conta mudou agora há pouco (outro celular). Confira a lista e tente de novo.'
+function contaSumiu(id) {
+  S.contas = S.contas.filter(x => x.id !== id)
+  guardarCache()
+  carregarTudo().catch(() => {})
+  return new Error(CONTA_SUMIU)
+}
+const diaDe = iso => Number(iso.slice(8, 10))
+
+async function salvarConta(f) {
+  const dados = { descricao: f.descricao.trim(), valor: f.centavos / 100, categoria_id: f.categoria_id,
+    vencimento: f.data, usuario_id: f.usuario_id }
+  const novaRegra = () => Api.criarRegraConta({ descricao: dados.descricao, valor: dados.valor, categoria_id: dados.categoria_id,
+    dia: diaDe(f.data), gerado_ate: f.data, usuario_id: f.usuario_id })
+  if (f.id) {
+    let regra_id = f.regra_id || null
+    if (f.repetir && !regra_id) { const r = await novaRegra(); S.regrasContas.push(numerico(r)); regra_id = r.id }
+    if (!f.repetir && regra_id) { await Api.excluirRegraConta(regra_id); S.regrasContas = S.regrasContas.filter(r => r.id !== regra_id); regra_id = null }
+    const r = await Api.editarConta(f.id, { ...dados, regra_id })
+    if (!r) throw contaSumiu(f.id)
+    const i = S.contas.findIndex(x => x.id === f.id)
+    if (i >= 0) S.contas[i] = numerico(r); else S.contas.push(numerico(r))
+  } else {
+    let regra_id = null
+    if (f.repetir) { const r = await novaRegra(); S.regrasContas.push(numerico(r)); regra_id = r.id }
+    S.contas.push(numerico(await Api.criarConta({ ...dados, regra_id })))
+  }
+  ordenarContas(S.contas)
+  guardarCache()
+}
+
+export async function excluirConta(id) {
+  const r = await Api.excluirConta(id)
+  if (!r?.length) throw contaSumiu(id)
+  S.contas = S.contas.filter(x => x.id !== id)
+  guardarCache()
+}
+
+// Paguei: a saída entra no caixa e a conta sai da lista (as mensais voltam no mês seguinte)
+export async function pagarConta(ct, forma, data, valor) {
+  try {
+    const lanc = numerico(await Api.pagarConta(ct.id, forma, data, valor, ct.valor))
+    S.lancs.push(lanc)
+    ordenar(S.lancs)
+    S.contas = S.contas.filter(x => x.id !== ct.id)
+    guardarCache()
+    return lanc
+  } catch (e) {
+    if (e.message === CONTA_SUMIU || e.message === CONTA_MUDOU) carregarTudo().catch(() => {})
+    throw e
+  }
+}
+
 /* ---------- Fiados ---------- */
 export const SUMIU = 'Esse fiado já foi recebido ou excluído.'
 export const MUDOU = 'Esse fiado mudou agora há pouco (outro pagamento ou edição). Confira a lista e tente de novo.'
@@ -515,6 +606,8 @@ export async function excluirCategoria(c, destino = null) {
       S.lancs.forEach(l => { if (l.categoria_id === c.id) l.categoria_id = destino })
       S.recorrentes.forEach(r => { if (r.categoria_id === c.id) r.categoria_id = destino })
       S.fiados.forEach(x => { if (x.categoria_id === c.id) x.categoria_id = destino })
+      S.contas.forEach(x => { if (x.categoria_id === c.id) x.categoria_id = destino })
+      S.regrasContas.forEach(x => { if (x.categoria_id === c.id) x.categoria_id = destino })
     }
     await Api.excluirCategoria(c.id)
     S.categorias = S.categorias.filter(x => x.id !== c.id)

@@ -6,7 +6,7 @@ const painel = page => page.getByRole('complementary', { name: 'Lançamento' })
 // o botão principal e a última fileira do teclado têm que caber no painel, sem cortar
 async function cabeTudo(page) {
   const p = await painel(page).boundingBox()
-  const botao = await painel(page).getByRole('button', { name: /^(Lançar entrada|Lançar saída|Anotar fiado)$/ }).boundingBox()
+  const botao = await painel(page).getByRole('button', { name: /^(Lançar entrada|Lançar saída|Anotar fiado|Anotar conta)$/ }).boundingBox()
   const zero = await painel(page).getByRole('button', { name: '0', exact: true }).boundingBox()
   expect(botao.y + botao.height, 'botão dentro do painel').toBeLessThanOrEqual(p.y + p.height + 1)
   expect(zero.y + zero.height, 'teclado acima do botão').toBeLessThanOrEqual(botao.y + 1)
@@ -64,4 +64,13 @@ test('Esc cancela o modo fiado no painel do computador', async ({ page }) => {
   await page.keyboard.press('Escape')
   await expect(painel(page).getByText('Novo fiado')).toBeHidden()
   await expect(painel(page).getByRole('radio', { name: 'Entrada' })).toBeVisible()
+})
+
+test('janela de 729px: no modo conta a pagar, botão e teclado também cabem', async ({ page }) => {
+  await painel(page).getByRole('radio', { name: 'Saída' }).click()
+  await painel(page).getByRole('button', { name: /Detalhes/ }).click()
+  await page.getByRole('dialog', { name: 'Detalhes' }).getByRole('button', { name: /Ainda não paguei/ }).click()
+  await page.getByRole('dialog', { name: 'Detalhes' }).getByRole('button', { name: 'Pronto' }).click()
+  await expect(painel(page).getByText('Nova conta a pagar')).toBeVisible()
+  await cabeTudo(page)
 })

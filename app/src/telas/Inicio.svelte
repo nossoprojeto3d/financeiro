@@ -2,6 +2,7 @@
   import { ArrowDownLeft, ArrowUpRight, ChevronRight } from '@lucide/svelte'
   import CartaoMes from '../componentes/CartaoMes.svelte'
   import Fiados from '../componentes/Fiados.svelte'
+  import ContasCartao from '../componentes/ContasCartao.svelte'
   import ItemLanc from '../componentes/ItemLanc.svelte'
   import GraficoMeses from '../componentes/GraficoMeses.svelte'
   import Lancar from '../componentes/Lancar.svelte'
@@ -28,7 +29,13 @@
 
     <CartaoMes grande={tela.largo} />
 
-    {#if S.temFiados}<Fiados />{/if}
+    <!-- A receber e A pagar, lado a lado -->
+    {#if S.temFiados || S.temContas}
+      <div class="grid gap-3 {S.temFiados && S.temContas ? 'grid-cols-2' : ''}">
+        {#if S.temFiados}<Fiados compacto={S.temContas} />{/if}
+        {#if S.temContas}<ContasCartao compacto={S.temFiados} />{/if}
+      </div>
+    {/if}
 
     <!-- Atalhos: já abrem o lançamento no tipo certo -->
     <div class="grid grid-cols-2 gap-3 lg:hidden">

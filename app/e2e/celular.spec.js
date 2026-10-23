@@ -75,7 +75,7 @@ test.describe('fiados', () => {
   test('o cartão do Início mostra o total e leva para a lista', async ({ page }) => {
     const cartao = page.getByRole('button', { name: /^A receber/ })
     expect(await semEspacos(cartao)).toContain('R$1.030,50')
-    expect(await semEspacos(cartao)).toContain('7pessoastedevem')
+    expect(await semEspacos(cartao)).toContain('7pessoas')
     await abrirAReceber(page)
     await expect(linha(page, 'Seu Zé (oficina)')).toBeVisible()
     await expect(linha(page, 'Dona Lúcia')).toContainText('pagou R$ 120,00 de R$ 200,00')

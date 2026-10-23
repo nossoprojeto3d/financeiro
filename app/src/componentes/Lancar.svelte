@@ -1,9 +1,9 @@
 <script>
-  import { X, Trash2, CalendarDays, Wallet, User, Repeat, ChevronRight, ChevronDown, Check, LayoutGrid, HandCoins } from '@lucide/svelte'
+  import { X, Trash2, CalendarDays, Wallet, User, Repeat, ChevronRight, ChevronDown, Check, LayoutGrid, HandCoins, CalendarClock } from '@lucide/svelte'
   import Teclado from './Teclado.svelte'
   import Folha from './Folha.svelte'
   import Dinheiro from './Dinheiro.svelte'
-  import { S, cat, perfil, categoriasDoTipo, abrirLancar, fecharLancar, salvarLanc, excluirLanc, excluirFiado, SUMIU, criarCategoria, avisar, tratarErro } from '../lib/estado.svelte.js'
+  import { S, cat, perfil, categoriasDoTipo, abrirLancar, fecharLancar, salvarLanc, excluirLanc, excluirFiado, excluirConta, SUMIU, CONTA_SUMIU, criarCategoria, avisar, tratarErro } from '../lib/estado.svelte.js'
   import { NATUREZAS, nomeNatureza, PAGAMENTOS } from '../lib/dados.js'
   import { hoje, ontem, dataBonita, deISO, fmt } from '../lib/formato.js'
   import { nomesUsados } from '../lib/fiados.js'
@@ -39,6 +39,13 @@
     if (f.fiado) { f.repetir = false; f.forma_pagamento = '' }
   }
 
+  // "Ainda não paguei": vira conta a pagar (a data passa a ser o vencimento)
+  function alternarConta() {
+    f.conta = !f.conta
+    f.forma_pagamento = ''
+    if (!f.conta && f.data > hoje()) f.data = hoje()
+  }
+
   function trocarTipo(tipo) {
     if (f.tipo === tipo) return
     f.tipo = tipo
@@ -49,7 +56,7 @@
   function teclaFisica(e) {
     if (!f || modo !== 'painel' || folha) return
     // no painel fixo, Esc só cancela o que tem X (edição ou fiado)
-    if (e.key === 'Escape' && (!fixo || f.id || f.fiado)) return cancelar()
+    if (e.key === 'Escape' && (!fixo || f.id || f.fiado || f.conta)) return cancelar()
     if (e.target.matches?.('input, textarea, select')) return
     if (/^[0-9]$/.test(e.key)) { tecla(e.key); e.preventDefault() }
     else if (e.key === 'Backspace') { tecla('apagar'); e.preventDefault() }
@@ -68,19 +75,20 @@
     if (!f.categoria_id) { marcarFalta('cat'); return avisar('Escolha a categoria.', 'erro') }
     if (!f.descricao.trim()) { marcarFalta('desc'); campoDesc?.focus(); return avisar('Escreva a descrição.', 'erro') }
     enviando = true
-    const editando = !!f.id, tipo = f.tipo, mensal = f.repetir, fiado = f.fiado
+    const editando = !!f.id, tipo = f.tipo, mensal = f.repetir, fiado = f.fiado, conta = f.conta
     try {
       const r = await salvarLanc(f)
       tentarDeNovo = false
       if (r?.pendente && !editando) avisar('Sem internet: ficou guardado aqui e vai sozinho quando a conexão voltar')
-      else avisar(editando ? 'Alterações salvas' : fiado ? 'Fiado anotado' : mensal ? 'Lançamento mensal criado' : tipo === 'entrada' ? 'Entrada lançada' : 'Saída lançada')
+      else avisar(editando ? 'Alterações salvas' : conta ? (mensal ? 'Conta mensal anotada' : 'Conta anotada') : fiado ? 'Fiado anotado' : mensal ? 'Lançamento mensal criado' : tipo === 'entrada' ? 'Entrada lançada' : 'Saída lançada')
       if (fixo) abrirLancar(editando ? 'entrada' : tipo)
       else fecharLancar()
     } catch (e) {
       // fiado que já foi recebido ou excluído em outro celular: não adianta tentar de novo
-      tentarDeNovo = e.message !== SUMIU
+      const sumiu = e.message === SUMIU || e.message === CONTA_SUMIU
+      tentarDeNovo = !sumiu
       tratarErro(e)
-      if (e.message === SUMIU) cancelar()
+      if (sumiu) cancelar()
     } finally {
       enviando = false
     }
@@ -90,14 +98,14 @@
     if (enviando) return
     enviando = true
     try {
-      const fiado = f.fiado
-      await (fiado ? excluirFiado(f.id) : excluirLanc(f.id))
+      const fiado = f.fiado, conta = f.conta
+      await (fiado ? excluirFiado(f.id) : conta ? excluirConta(f.id) : excluirLanc(f.id))
       folha = null
-      avisar(fiado ? 'Fiado excluído' : 'Lançamento excluído')
+      avisar(fiado ? 'Fiado excluído' : conta ? 'Conta excluída' : 'Lançamento excluído')
       cancelar()
     } catch (e) {
       tratarErro(e)
-      if (e.message === SUMIU) { folha = null; cancelar() }
+      if (e.message === SUMIU || e.message === CONTA_SUMIU) { folha = null; cancelar() }
     }
     finally { enviando = false }
   }
@@ -120,7 +128,7 @@
     else fecharLancar()
   }
 
-  const resumoData = $derived(f ? (f.repetir ? `Todo dia ${deISO(f.data).getDate()}` : dataBonita(f.data)) : '')
+  const resumoData = $derived(!f ? '' : f.conta ? `Vence ${f.data === hoje() ? 'hoje' : dataBonita(f.data).toLowerCase()}${f.repetir ? ' · todo mês' : ''}` : f.repetir ? `Todo dia ${deISO(f.data).getDate()}` : dataBonita(f.data))
   const corTipo = $derived(f?.tipo === 'saida' ? 'text-sai' : 'text-ent')
 </script>
 
@@ -131,14 +139,17 @@
   <div class="flex flex-col {modo === 'tela' ? 'h-full pt-seguro' : 'h-full min-h-min'}">
     <!-- Topo -->
     <div class="flex items-center gap-2 px-4 pt-3 {modo === 'painel' ? 'px-5 pt-5' : ''}">
-      {#if !fixo || f.id || f.fiado}
+      {#if !fixo || f.id || f.fiado || f.conta}
         <button class="grid size-10 shrink-0 place-items-center rounded-full text-txt-2 hover:bg-sup-2" aria-label="Fechar" onclick={cancelar}><X size={22} /></button>
       {/if}
       {#if f.id}
-        <p class="flex-1 text-[15px] font-medium text-txt-2">Editando {f.fiado ? 'fiado' : f.tipo === 'entrada' ? 'entrada' : 'saída'}</p>
-        <button class="grid size-10 shrink-0 place-items-center rounded-full text-txt-3 hover:bg-sai-fundo hover:text-sai" aria-label={f.fiado ? 'Excluir fiado' : 'Excluir lançamento'} onclick={() => (folha = 'excluir')}><Trash2 size={19} /></button>
+        <p class="flex-1 text-[15px] font-medium text-txt-2">Editando {f.fiado ? 'fiado' : f.conta ? 'conta a pagar' : f.tipo === 'entrada' ? 'entrada' : 'saída'}</p>
+        <button class="grid size-10 shrink-0 place-items-center rounded-full text-txt-3 hover:bg-sai-fundo hover:text-sai" aria-label={f.fiado ? 'Excluir fiado' : f.conta ? 'Excluir conta' : 'Excluir lançamento'} onclick={() => (folha = 'excluir')}><Trash2 size={19} /></button>
       {:else if f.fiado}
         <p class="flex-1 text-center text-[15px] font-semibold text-ent">Novo fiado</p>
+        <span class="size-10 shrink-0"></span>
+      {:else if f.conta}
+        <p class="flex-1 text-center text-[15px] font-semibold text-sai">Nova conta a pagar</p>
         <span class="size-10 shrink-0"></span>
       {:else}
         <div class="relative mx-auto grid w-full max-w-[260px] grid-cols-2 rounded-full bg-sup-2 p-1 " role="radiogroup" aria-label="Tipo">
@@ -203,17 +214,17 @@
         maxlength="120"
         enterkeyhint="done"
         class="h-12 w-full rounded-2xl border bg-transparent px-4 text-[16px] text-txt placeholder:text-txt-3 focus:border-sup-3 focus:outline-none {falta === 'desc' ? 'animate-[tremer_.4s] border-sai' : 'border-linha'}"
-        placeholder={f.fiado ? 'O que levou · ex.: 2 vasos geométricos' : f.tipo === 'entrada' ? 'Descrição · ex.: pedido Shopee #1234' : 'Descrição · ex.: 3 rolos PLA preto'}
+        placeholder={f.fiado ? 'O que levou · ex.: 2 vasos geométricos' : f.conta ? 'Que conta é · ex.: Energia' : f.tipo === 'entrada' ? 'Descrição · ex.: pedido Shopee #1234' : 'Descrição · ex.: 3 rolos PLA preto'}
       />
 
       <!-- Detalhes em uma linha: cada um mostra o que está valendo -->
       <!-- (numa linha só: o que não couber some com reticências, e "Detalhes" vira só a seta) -->
       <button class="flex min-h-11 w-full items-center gap-3 overflow-hidden rounded-2xl px-1 text-left text-[13px] whitespace-nowrap text-txt-2" onclick={() => (folha = 'detalhes')}>
-        <span class="flex shrink-0 items-center gap-1.5"><CalendarDays size={15} class="text-txt-3" />{resumoData}</span>
+        <span class="flex shrink-0 items-center gap-1.5">{#if f.conta}<CalendarClock size={15} class="text-txt-3" />{:else}<CalendarDays size={15} class="text-txt-3" />{/if}{resumoData}</span>
         {#if f.fiado}<span class="flex min-w-0 items-center gap-1.5"><HandCoins size={15} class="shrink-0 text-txt-3" /><span class="truncate">Fiado{f.nome.trim() ? ` · ${f.nome.trim()}` : ''}</span></span>
         {:else if f.forma_pagamento}<span class="flex min-w-0 items-center gap-1.5"><Wallet size={15} class="shrink-0 text-txt-3" /><span class="truncate">{f.forma_pagamento}</span></span>{/if}
         {#if f.usuario_id !== S.perfil.id}<span class="flex shrink-0 items-center gap-1.5"><User size={15} class="text-txt-3" />{perfil(f.usuario_id)?.nome}</span>{/if}
-        <span class="ml-auto flex shrink-0 items-center text-txt-3">{#if !f.forma_pagamento && !f.fiado && f.usuario_id === S.perfil.id}Detalhes{/if}<ChevronRight size={16} /></span>
+        <span class="ml-auto flex shrink-0 items-center text-txt-3">{#if !f.forma_pagamento && !f.fiado && !f.conta && f.usuario_id === S.perfil.id}Detalhes{/if}<ChevronRight size={16} /></span>
       </button>
     </div>
 
@@ -231,7 +242,7 @@
         {#if enviando}<span class="size-5 animate-spin rounded-full border-2 border-fundo/30 border-t-fundo"></span>
         {:else if tentarDeNovo}Tentar de novo
         {:else if f.id}<Check size={20} />Salvar alterações
-        {:else}{f.fiado ? 'Anotar fiado' : f.repetir ? 'Criar lançamento mensal' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}{/if}
+        {:else}{f.fiado ? 'Anotar fiado' : f.conta ? 'Anotar conta' : f.repetir ? 'Criar lançamento mensal' : f.tipo === 'entrada' ? 'Lançar entrada' : 'Lançar saída'}{/if}
       </button>
     </div>
   </div>
@@ -274,12 +285,12 @@
 
   {#if folha === 'detalhes'}
     <Folha titulo="Detalhes" aoFechar={() => (folha = null)}>
-      <p class="mb-2 text-[13px] text-txt-3">Data</p>
+      <p class="mb-2 text-[13px] text-txt-3">{f.conta ? 'Vence em' : 'Data'}</p>
       <div class="flex gap-2">
-        {#each [[hoje(), 'Hoje'], [ontem(), 'Ontem']] as [d, r]}
+        {#each f.conta ? [[hoje(), 'Hoje']] : [[hoje(), 'Hoje'], [ontem(), 'Ontem']] as [d, r]}
           <button class="h-10 rounded-full px-4 text-[14px] font-medium {f.data === d ? 'bg-txt text-fundo' : 'border border-linha text-txt-2'}" onclick={() => (f.data = d)}>{r}</button>
         {/each}
-        <input type="date" bind:value={f.data} max={hoje()} aria-label="Outra data"
+        <input type="date" bind:value={f.data} max={f.conta ? '2100-12-31' : hoje()} aria-label={f.conta ? 'Dia do vencimento' : 'Outra data'}
           class="h-10 min-w-0 flex-1 rounded-full border px-3 text-[16px] [color-scheme:dark] {f.data !== hoje() && f.data !== ontem() ? 'border-transparent bg-txt text-fundo' : 'border-linha bg-transparent text-txt-2'}" />
       </div>
 
@@ -291,15 +302,23 @@
         </button>
       {/if}
 
-      {#if !f.id && !f.fiado}
+      {#if !f.id && f.tipo === 'saida' && S.temContas}
+        <button class="mt-5 flex w-full items-center gap-3 rounded-2xl bg-sup-2/50 p-4 text-left" aria-pressed={!!f.conta} onclick={alternarConta}>
+          <CalendarClock size={18} class="text-txt-3" />
+          <span class="flex-1"><span class="block text-[15px]">Ainda não paguei</span><span class="text-[13px] text-txt-3">{f.conta ? 'Fica anotada em A pagar' : 'Para boletos e contas com vencimento'}</span></span>
+          <span class="relative h-7 w-12 rounded-full transition-colors {f.conta ? 'bg-ambar' : 'bg-sup-3'}"><span class="absolute top-1 left-1 size-5 rounded-full bg-white transition-transform {f.conta ? 'translate-x-5' : ''}"></span></span>
+        </button>
+      {/if}
+
+      {#if (!f.id && !f.fiado) || f.conta}
         <button class="mt-5 flex w-full items-center gap-3 rounded-2xl bg-sup-2/50 p-4 text-left" aria-pressed={f.repetir} onclick={() => (f.repetir = !f.repetir)}>
           <Repeat size={18} class="text-txt-3" />
-          <span class="flex-1"><span class="block text-[15px]">Repetir todo mês</span><span class="text-[13px] text-txt-3">{f.repetir ? `Lança sozinho todo dia ${deISO(f.data).getDate()}` : 'Para assinaturas e contas do mês'}</span></span>
+          <span class="flex-1"><span class="block text-[15px]">Repetir todo mês</span><span class="text-[13px] text-txt-3">{f.conta ? (f.repetir ? `A conta volta todo dia ${deISO(f.data).getDate()}, esperando o Paguei` : 'Para energia, internet, aluguel…') : f.repetir ? `Lança sozinho todo dia ${deISO(f.data).getDate()}` : 'Para assinaturas e contas do mês'}</span></span>
           <span class="relative h-7 w-12 rounded-full transition-colors {f.repetir ? 'bg-ambar' : 'bg-sup-3'}"><span class="absolute top-1 left-1 size-5 rounded-full bg-white transition-transform {f.repetir ? 'translate-x-5' : ''}"></span></span>
         </button>
       {/if}
 
-      {#if !f.fiado}
+      {#if !f.fiado && !f.conta}
         <p class="mt-5 mb-2 text-[13px] text-txt-3">Forma de pagamento</p>
         <div class="flex flex-wrap gap-2">
           {#each PAGAMENTOS as p}
@@ -324,8 +343,8 @@
   {/if}
 
   {#if folha === 'excluir'}
-    <Folha titulo={f.fiado ? 'Excluir fiado?' : 'Excluir lançamento?'} aoFechar={() => (folha = null)}>
-      <p class="text-[15px] text-txt-2">{f.fiado ? `O fiado de ${f.nome.trim()} (${fmt(f.centavos / 100)}) sai da lista e não dá para desfazer.` : 'O valor sai do caixa e não dá para desfazer.'}</p>
+    <Folha titulo={f.fiado ? 'Excluir fiado?' : f.conta ? 'Excluir conta?' : 'Excluir lançamento?'} aoFechar={() => (folha = null)}>
+      <p class="text-[15px] text-txt-2">{f.fiado ? `O fiado de ${f.nome.trim()} (${fmt(f.centavos / 100)}) sai da lista e não dá para desfazer.` : f.conta ? `A conta ${f.descricao.trim()} (${fmt(f.centavos / 100)}) sai da lista${f.regra_id ? ' só neste mês; para parar de vir, desligue o Repetir todo mês' : ''}.` : 'O valor sai do caixa e não dá para desfazer.'}</p>
       <div class="mt-5 grid grid-cols-2 gap-2">
         <button class="h-12 rounded-2xl bg-sup-3 text-[15px] font-semibold" onclick={() => (folha = null)}>Cancelar</button>
         <button class="h-12 rounded-2xl bg-sai text-[15px] font-semibold text-fundo disabled:opacity-60" disabled={enviando} onclick={excluir}>{enviando ? 'Excluindo…' : 'Excluir'}</button>

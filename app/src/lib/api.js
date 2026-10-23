@@ -148,10 +148,13 @@ export const Api = (() => {
 
   const volta = { prefer: 'return=representation' };
   // o Supabase respondeu que a tabela de fiados não existe (v4-fiados.sql ainda não rodou)
-  const semTabelaFiados = e => /fiados/i.test(e.message) && /could not find the table|does not exist|schema cache/i.test(e.message);
+  const semTabela = (e, nome) => new RegExp(nome, 'i').test(e.message) && /could not find the (table|function)|does not exist|schema cache/i.test(e.message);
+  const semTabelaFiados = e => semTabela(e, 'fiados');
+  // tabelas de contas a pagar (v5-contas.sql) ainda não existem no banco
+  const semTabelaContas = e => semTabela(e, 'contas');
 
   return {
-    configurado, login, sair, semTabelaFiados,
+    configurado, login, sair, semTabelaFiados, semTabelaContas,
     sessao: () => sessao,
     perfis: () => rest('perfis?select=id,nome,cor&order=nome'),
     categorias: () => rest('categorias?select=*&order=nome'),
@@ -182,6 +185,9 @@ export const Api = (() => {
       // sem a tabela de fiados no banco (v4-fiados.sql não rodado), segue
       await rest(`fiados?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } })
         .catch(e => { if (e.auth || !semTabelaFiados(e)) throw e; });
+      for (const t of ['contas', 'contas_regras'])
+        await rest(`${t}?categoria_id=eq.${de}`, { method: 'PATCH', body: { categoria_id: para } })
+          .catch(e => { if (e.auth || !semTabelaContas(e)) throw e; });
     },
 
     // V2: recorrentes
@@ -212,6 +218,21 @@ export const Api = (() => {
         return chamar(base)
       }
     },
+
+    // V5: contas a pagar (e as que se repetem todo mês)
+    contas: () => todos('contas?select=*&order=vencimento.asc,id.asc'),
+    criarConta: d => rest('contas', { method: 'POST', body: d, ...volta }).then(r => r[0]),
+    editarConta: (id, d) => rest(`contas?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
+    // devolve o que apagou: vazio quando já tinha sido paga ou excluída em outro celular
+    excluirConta: id => rest(`contas?id=eq.${id}`, { method: 'DELETE', ...volta }),
+    contasRegras: () => rest('contas_regras?select=*&order=dia'),
+    criarRegraConta: d => rest('contas_regras', { method: 'POST', body: d, ...volta }).then(r => r[0]),
+    excluirRegraConta: id => rest(`contas_regras?id=eq.${id}`, { method: 'DELETE' }),
+    gerarContas: () => rest('rpc/gerar_contas', { method: 'POST', body: {} }),
+    // lança a saída e tira a conta da lista no mesmo passo; recusa se a conta mudou em outro celular
+    pagarConta: (id, forma, data, valor, valorEsperado) => rest('rpc/pagar_conta', { method: 'POST',
+      body: { p_id: id, p_forma: forma, p_data: data, p_valor: valor, p_valor_esperado: valorEsperado } })
+      .then(r => (Array.isArray(r) ? r[0] : r)),
 
     // V2: análise com IA (Edge Function que guarda a chave do Gemini)
     analisar: async dados => {

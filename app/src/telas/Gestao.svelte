@@ -4,11 +4,12 @@
   import GraficoMeses from '../componentes/GraficoMeses.svelte'
   import { S, cat, perfil, avisar, tratarErro, assinaturaAtual, irPara } from '../lib/estado.svelte.js'
   import { totalFalta, pessoas } from '../lib/fiados.js'
+  import { resumoContas } from '../lib/contas.js'
   import { Api } from '../lib/api.js'
   import { analise, porMes, PERIODOS } from '../lib/analise.js'
   import { dadosParaIA, chaveIA, iaSalva, guardarIA } from '../lib/ia.js'
   import { exportarCSV } from '../lib/exportar.js'
-  import { fmt, pct, dataCurta, soma } from '../lib/formato.js'
+  import { fmt, pct, dataCurta, soma, hoje } from '../lib/formato.js'
 
   const a = $derived(analise(S.lancs, cat, S.periodo))
   const meses = $derived(porMes(S.lancs, 6))
@@ -81,6 +82,17 @@
       <span class="text-txt-3">·</span>
       <Dinheiro valor={totalFalta(S.fiados)} class="text-[15px] font-semibold text-txt" />
       <span class="text-txt-3">· {n} {n === 1 ? 'pessoa' : 'pessoas'}</span>
+      <ChevronRight size={16} class="ml-auto text-txt-3" />
+    </button>
+  {/if}
+
+  {#if S.contas.length}
+    {@const rc = resumoContas(S.contas, hoje())}
+    <button class="-mt-3 flex min-h-11 w-full items-center gap-1.5 rounded-2xl px-1 text-left text-[13px]" onclick={() => irPara('pagar')}>
+      <span class="text-txt-2">A pagar agora</span>
+      <span class="text-txt-3">·</span>
+      <Dinheiro valor={rc.total} class="text-[15px] font-semibold text-txt" />
+      <span class="{rc.atrasadas ? 'text-sai' : 'text-txt-3'}">· {rc.atrasadas ? `${rc.atrasadas} atrasada${rc.atrasadas === 1 ? '' : 's'}` : `${S.contas.length} conta${S.contas.length === 1 ? '' : 's'}`}</span>
       <ChevronRight size={16} class="ml-auto text-txt-3" />
     </button>
   {/if}

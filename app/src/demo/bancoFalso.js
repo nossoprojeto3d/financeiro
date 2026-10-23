@@ -17,7 +17,7 @@ function bancoInicial() {
     ['Saldo inicial / ajuste', 'entrada', 'outra'], ['Filamento', 'saida', 'variavel'],
     ['Embalagens', 'saida', 'variavel'], ['Frete / envio', 'saida', 'variavel'],
     ['Taxas Shopee', 'saida', 'variavel'], ['Software e assinaturas', 'saida', 'fixa'],
-    ['Impressoras e equipamentos', 'saida', 'investimento'],
+    ['Impressoras e equipamentos', 'saida', 'investimento'], ['Energia e internet', 'saida', 'fixa'],
   ]
   const categorias = nomes.map(([nome, tipo, natureza], i) => ({ id: i + 1, nome, tipo, natureza, ativa: true }))
   const lancamentos = []
@@ -54,6 +54,14 @@ function bancoInicial() {
     seq: 1000,
     perfis: [{ id: EU, nome: 'Junior', cor: '#4FE0A5' }, { id: THAI, nome: 'Thai', cor: '#FF7B8B' }],
     categorias, lancamentos, recorrentes: [], fiados,
+    // contas a pagar: uma atrasada, uma vencendo hoje, a energia que volta todo mês e uma mais longe
+    contas_regras: [{ id: 1, descricao: 'Energia', valor: 180, categoria_id: 12, dia: Number(diasAtras(-3).slice(8)), gerado_ate: diasAtras(-3), usuario_id: EU, atualizado_em: 't0' }],
+    contas: [
+      { id: 1, descricao: 'Boleto filamento', valor: 320, categoria_id: 6, vencimento: diasAtras(2), regra_id: null, usuario_id: THAI },
+      { id: 2, descricao: 'Internet', valor: 99.9, categoria_id: 12, vencimento: diasAtras(0), regra_id: null, usuario_id: EU },
+      { id: 3, descricao: 'Energia', valor: 180, categoria_id: 12, vencimento: diasAtras(-3), regra_id: 1, usuario_id: EU },
+      { id: 4, descricao: 'Parcela da impressora', valor: 450, categoria_id: 11, vencimento: diasAtras(-20), regra_id: null, usuario_id: EU },
+    ].map(c => ({ ...c, atualizado_em: 't0' })),
   }
 }
 
@@ -93,6 +101,42 @@ window.fetch = async (url, op = {}) => {
 
   const caminho = u.pathname.replace('/rest/v1/', '')
   if (caminho === 'rpc/gerar_recorrentes') return resp(0)
+  // dados de demonstração antigos (antes das contas a pagar): responde como banco sem o v5-contas.sql
+  if ((caminho === 'rpc/gerar_contas' || caminho === 'rpc/pagar_conta') && !db.contas)
+    return erro(`Could not find the function public.${caminho.slice(4)} in the schema cache`, 404)
+  if (caminho === 'rpc/gerar_contas') {
+    // mesma regra do v5-contas.sql: gera a conta de cada mês até o atual
+    const mesAtual = iso(new Date()).slice(0, 7)
+    let n = 0
+    for (const r of db.contas_regras) {
+      const base = r.gerado_ate ? new Date(+r.gerado_ate.slice(0, 4), +r.gerado_ate.slice(5, 7), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+      for (let d = base; iso(d).slice(0, 7) <= mesAtual; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+        const ult = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+        const v = iso(new Date(d.getFullYear(), d.getMonth(), Math.min(r.dia, ult)))
+        if (!db.contas.some(c => c.regra_id === r.id && c.vencimento === v)) {
+          db.contas.push({ id: ++db.seq, descricao: r.descricao, valor: r.valor, categoria_id: r.categoria_id, vencimento: v, regra_id: r.id, usuario_id: r.usuario_id, atualizado_em: 't' + db.seq })
+          n++
+        }
+        r.gerado_ate = v
+      }
+    }
+    salvar()
+    return resp(n)
+  }
+  if (caminho === 'rpc/pagar_conta') {
+    const i = db.contas.findIndex(c => c.id === corpo.p_id)
+    if (i < 0) return erro('Essa conta já foi paga ou excluída.')
+    const c = db.contas[i]
+    if (corpo.p_valor_esperado != null && corpo.p_valor_esperado !== c.valor) return erro('Essa conta mudou agora há pouco (outro celular). Confira a lista e tente de novo.')
+    if (!corpo.p_data || corpo.p_data > iso(new Date())) return erro('A data do pagamento não pode ser no futuro.')
+    const l = { id: ++db.seq, tipo: 'saida', valor: corpo.p_valor, categoria_id: c.categoria_id,
+      descricao: `${c.descricao.trim()} · vencimento ${c.vencimento.slice(8)}/${c.vencimento.slice(5, 7)}`, forma_pagamento: corpo.p_forma.trim(),
+      data: corpo.p_data, usuario_id: EU, recorrente_id: null, atualizado_em: 't' + db.seq }
+    db.lancamentos.push(l)
+    db.contas.splice(i, 1)
+    salvar()
+    return resp(l)
+  }
   if (caminho === 'rpc/receber_fiado') {
     // banco sem o v4-fiados-historico.sql (os testes ligam isto para ver o app se virar sem ele)
     if (window.__semHistoricoFiado && ('p_pago_esperado' in corpo || 'p_valor_esperado' in corpo))
@@ -143,6 +187,8 @@ window.fetch = async (url, op = {}) => {
     return resp(alvo)
   }
   if (m === 'DELETE') {
+    // como no banco: apagar a regra mensal deixa as contas já geradas, sem a regra
+    if (caminho === 'contas_regras') db.contas.filter(c => lista.some(r => bate(r) && r.id === c.regra_id)).forEach(c => { c.regra_id = null })
     const fora = []
     for (let i = lista.length - 1; i >= 0; i--) if (bate(lista[i])) fora.push(...lista.splice(i, 1))
     salvar()
