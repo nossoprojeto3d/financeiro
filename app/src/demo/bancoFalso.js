@@ -68,7 +68,9 @@ function bancoInicial() {
 if (new URLSearchParams(location.search).has('zerar')) {
   localStorage.removeItem(CHAVE)
   localStorage.removeItem('caixa_cache')
-  history.replaceState(null, '', location.pathname)
+  // tira só o ?zerar (o resto, como o ?tela=pagar da notificação, fica para o app)
+  const resto = new URLSearchParams(location.search); resto.delete('zerar')
+  history.replaceState(null, '', location.pathname + (resto.size ? `?${resto}` : ''))
 }
 let db
 try { db = JSON.parse(localStorage.getItem(CHAVE)) } catch (_) { db = null }

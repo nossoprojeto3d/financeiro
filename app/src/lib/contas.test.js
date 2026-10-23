@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { situacao, ordenarContas, resumoContas } from './contas.js'
+import { situacao, ordenarContas, resumoContas, mensagemAviso } from './contas.js'
 
 describe('situacao (o que aparece em cada conta)', () => {
   const h = '2026-10-23'
@@ -40,5 +40,28 @@ describe('resumoContas', () => {
   })
   it('lista vazia', () => {
     expect(resumoContas([], '2026-10-23')).toEqual({ total: 0, atrasadas: 0, semana: 0, urgentes: 0 })
+  })
+})
+
+describe('mensagemAviso (notificação das 8h)', () => {
+  const h = '2026-10-23'
+  it('nada vencendo nem atrasado: não manda', () => {
+    expect(mensagemAviso([{ descricao: 'Aluguel', valor: 900, vencimento: '2026-10-24' }], h)).toBe(null)
+  })
+  it('uma vencendo hoje', () => {
+    expect(mensagemAviso([{ descricao: 'Energia', valor: 180, vencimento: h }], h))
+      .toEqual({ titulo: 'Energia vence hoje', corpo: 'R$ 180,00 · toque para ver' })
+  })
+  it('uma atrasada', () => {
+    expect(mensagemAviso([{ descricao: 'Boleto', valor: 320, vencimento: '2026-10-21' }], h))
+      .toEqual({ titulo: 'Boleto está atrasada', corpo: 'R$ 320,00 · venceu dia 21/10' })
+  })
+  it('várias: diz quantas e soma em centavos', () => {
+    const l = [{ descricao: 'A', valor: 0.1, vencimento: h }, { descricao: 'B', valor: 0.2, vencimento: h }, { descricao: 'C', valor: 100, vencimento: '2026-10-20' }, { descricao: 'D', valor: 5, vencimento: '2026-11-01' }]
+    expect(mensagemAviso(l, h)).toEqual({ titulo: '3 contas para pagar', corpo: '2 vencem hoje e 1 está atrasada · R$ 100,30' })
+  })
+  it('várias só atrasadas', () => {
+    const l = [{ descricao: 'A', valor: 10, vencimento: '2026-10-20' }, { descricao: 'B', valor: 20, vencimento: '2026-10-22' }]
+    expect(mensagemAviso(l, h)).toEqual({ titulo: '2 contas para pagar', corpo: '2 estão atrasadas · R$ 30,00' })
   })
 })

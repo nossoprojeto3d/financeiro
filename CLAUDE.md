@@ -2,7 +2,7 @@
 
 ## O que é
 **Nome do app: Financeiro NP3D** (use sempre esse nome: título, ícone na tela de início, manifest).
-PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 5.0.0.
+PWA de controle de caixa e gestão financeira da Nosso Projeto 3D, uma pequena empresa de impressão 3D (vendas pela Shopee, pelo WhatsApp e encomendas personalizadas). Só dois usuários: Junior e Thai (sócios, casal). Uso principal no iPhone, instalado pela tela de início. Versão atual: 5.1.0.
 
 ## Regras que não mudam
 - **Custo zero:** nada de serviço pago ou plano mensal. Hospedagem no GitHub Pages, banco no Supabase (plano grátis), IA pelo Gemini (camada grátis).
@@ -28,7 +28,7 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `app/src/lib/api.js`: login, renovação de sessão e chamadas ao banco (objeto `Api`).
 - `app/src/lib/lock.js`: trava com Face ID via WebAuthn (objeto `Lock`). É trava local do aparelho; a segurança real é o login + RLS.
 - `app/src/lib/estado.svelte.js`: estado (`S`), carregar, sincronizar, trava, salvar/excluir lançamentos, categorias, recorrentes e fiados.
-- `app/src/lib/analise.js`: contas da Gestão (lucro, meta mínima, canais). `ia.js`: dados enviados à IA e cache do dia. `exportar.js`: CSV. `fiados.js`: contas dos fiados (testes com `npm test` em `app/`). `fila.js`: fila dos lançamentos feitos sem internet (chave `caixa_fila`). `contas.js`: contas a pagar (situação "atrasada/vence hoje/vence em N dias", ordem e resumo).
+- `app/src/lib/analise.js`: contas da Gestão (lucro, meta mínima, canais). `ia.js`: dados enviados à IA e cache do dia. `exportar.js`: CSV. `fiados.js`: contas dos fiados (testes com `npm test` em `app/`). `fila.js`: fila dos lançamentos feitos sem internet (chave `caixa_fila`). `contas.js`: contas a pagar (situação "atrasada/vence hoje/vence em N dias", ordem, resumo e `mensagemAviso`, o texto da notificação). `avisos.js`: ligar/desligar os avisos no aparelho (Web Push).
 - `app/public/sw.js`: service worker (rede primeiro, cache offline).
 - `supabase/setup.sql`: tabelas, segurança (RLS) e categorias iniciais.
 - `supabase/v2.sql`: lançamentos que se repetem (tabela `recorrentes` e função `gerar_recorrentes`).
@@ -39,6 +39,8 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - `supabase/v4-fiados-historico.sql`: `lancamentos.fiado_id` (de qual fiado veio a venda, para o "Já pagou") e `receber_fiado` com `p_pago_esperado`/`p_valor_esperado` (recusa se o fiado mudou em outro celular). Depois dele, não rode os dois anteriores de novo. A função de receber é uma só; os SQLs de fiado formam uma sequência.
 - `supabase/v4-sem-internet.sql`: etiqueta `lancamentos.id_cliente` (única) para o mesmo lançamento não entrar duas vezes quando é reenviado.
 - `supabase/v5-contas.sql`: contas a pagar (tabelas `contas` e `contas_regras`, funções `gerar_contas` e `pagar_conta`).
+- `supabase/v5-avisos.sql`: tabela `push_inscricoes` (aparelhos que ligaram os avisos; cada um só vê os seus). `supabase/v5-avisos-agenda.sql`: agenda (pg_cron + pg_net) que chama a função `avisos` todo dia às 8h de Brasília; leva a senha `AVISOS_SEGREDO`, então a versão preenchida fica fora do repositório (`~/Claude/financeiro-agenda-avisos.sql`).
+- `supabase/functions/avisos/index.ts`: Edge Function que manda as notificações (web-push). Segredos: `VAPID_PUBLICA`, `VAPID_PRIVADA`, `AVISOS_SEGREDO` (valores em `~/Claude/financeiro-chaves-avisos.txt`, fora do repositório; a pública também está em `config.js`). Publicada com "Verify JWT" desligado: confere sozinha a senha da agenda ou o login de membro (notificação de teste). Importa `mensagemAviso` do app pelo jsDelivr fixado num commit; mudou a regra em `contas.js`, troque o commit no import e republique. Teste de ponta a ponta com Deno: ver o histórico do commit que criou a função.
 - `supabase/functions/analise/index.ts`: Edge Function que chama o Gemini. A chave fica no segredo `GEMINI_API_KEY` do Supabase.
 
 ## Banco (Supabase)
@@ -57,6 +59,7 @@ O código fica em `app/`. O GitHub Pages publica pelo GitHub Actions (`.github/w
 - **Fiados (desde a 4.1):** anotar por Detalhes → "Ainda não recebi" ou por "+ Anotar fiado" na tela "A receber" (o cartão do Início leva até ela). No "Recebeu" dá para receber tudo ou só uma parte (desde a 4.2); o que falta = valor − pago, sempre em centavos (`falta()` e `totalFalta()` em `fiados.js`). A Venda criada leva "Nome · o que levou" na descrição, com "(parte)" quando não quita. O Recebeu mostra o que já foi pago ("Já pagou") e manda ao banco o pago/valor que a tela viu: se outro celular mexeu no fiado antes, o banco recusa ("Esse fiado mudou agora há pouco…"), a lista recarrega e o painel fecha. Sem o `v4-fiados-historico.sql`, o app tenta de novo sem essa conferência. A Gestão mostra "A receber agora" (valor de agora, não muda com o período).
 - **Lançar sem internet (desde a 4.4):** lançamento novo (entrada ou saída) que não consegue chegar ao banco por falta de rede fica na fila do celular (`caixa_fila`), aparece na lista com "Esperando internet", já conta no saldo e é enviado sozinho ao voltar a conexão (evento `online`), ao voltar para o app, ao entrar e a cada 30 s. Dá para corrigir e apagar enquanto espera. Recusado pelo banco: fica marcado "Não foi aceito" para corrigir. Editar/excluir um já enviado, repetir todo mês, fiados e Recebeu continuam precisando de internet. O cache (`caixa_cache`) guarda só o que já está no banco; `ordenar()` põe os pendentes (id negativo) como os mais novos do dia. Abrir sem internet e sem nada guardado (primeira vez no celular ou logo depois da senha) mostra a tela "Sem internet" (`S.fase = 'semrede'`, em `Porta`), que tenta de novo sozinha no evento `online`.
 - **Contas a pagar (desde a 5.0):** cartão "A pagar" no Início (total e "N atrasada(s)" ou "N vencem esta semana" em coral quando há atrasada ou vencendo em até 3 dias) leva à tela "A pagar" (ordem de vencimento). Anotar por "+ Anotar conta" ou numa Saída em Detalhes › "Ainda não paguei"; a data do formulário vira "Vence em" e o "Repetir todo mês" cria a regra (desligar na edição apaga a regra). "Paguei" aceita outro valor (conta de energia que veio diferente), forma e data. A Gestão mostra "A pagar agora". Precisa de internet (como os fiados).
+- **Avisos no iPhone (desde a 5.1):** Ajustes › "Avisar vencimentos neste iPhone" pede a permissão (só funciona no app instalado pela tela de início, e o pedido tem que vir de um toque) e grava o aparelho em `push_inscricoes`. Todo dia às 8h a função `avisos` manda, para todos os aparelhos, "Energia vence hoje · R$ 180,00" ou "3 contas para pagar" (contas vencendo hoje + atrasadas; nada se não houver). Aparelho que não existe mais é removido sozinho. Tocar na notificação abre o app em "A pagar" (`./?tela=pagar`, ou mensagem do service worker se o app já estiver aberto). "Mandar notificação de teste" manda só para os aparelhos de quem tocou.
 - **Meta mínima:** sempre pela média dos últimos 3 meses, igual no Início e na Gestão.
 - A Gestão analisa a empresa inteira no período escolhido; os filtros por pessoa, tipo e categoria ficam só em "Explorar lançamentos".
 - A análise com IA envia só totais agregados, nunca descrições dos lançamentos.
@@ -92,4 +95,4 @@ Usado pelo `/conferir-site`. **O banco é o de verdade, com o dinheiro real da e
 Para testar fluxos que gravam sem tocar no banco real, use primeiro `npm run test:e2e` (automático). Para olhar com os próprios olhos, use o modo demonstração (`npm run demo`), que já traz o banco de mentira; não precisa injetar `fetch` falso à mão.
 
 ## Próximos passos planejados
-Notificação no iPhone do vencimento das contas a pagar (Web Push: todo dia às 8h, conta vencendo hoje ou atrasada; ligar em Ajustes, com notificação de teste).
+Nenhum no momento.

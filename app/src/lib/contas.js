@@ -1,5 +1,5 @@
 // Contas a pagar: contas puras (sem banco nem tela).
-import { deISO, cent } from './formato.js'
+import { deISO, cent, fmt } from './formato.js'
 
 const diasAte = (vencimento, hojeISO) => Math.round((deISO(vencimento) - deISO(hojeISO)) / 864e5)
 
@@ -31,4 +31,25 @@ export function resumoContas(lista, hojeISO) {
     else if (d <= 7) { semana++; if (d <= 3) urgentes++ }
   }
   return { total: total / 100, atrasadas, semana, urgentes }
+}
+
+// Texto da notificação das 8h: contas que vencem hoje e as atrasadas. null = não manda nada.
+// (a função "avisos" do Supabase usa a mesma regra: supabase/functions/avisos/index.ts)
+export function mensagemAviso(lista, hojeISO) {
+  const reais = v => fmt(v).replace(/\s/g, ' ')
+  const hoje = lista.filter(c => c.vencimento === hojeISO)
+  const atrasadas = lista.filter(c => c.vencimento < hojeISO)
+  const todas = [...atrasadas, ...hoje]
+  if (!todas.length) return null
+  if (todas.length === 1) {
+    const c = todas[0]
+    if (hoje.length) return { titulo: `${c.descricao} vence hoje`, corpo: `${reais(c.valor)} · toque para ver` }
+    return { titulo: `${c.descricao} está atrasada`, corpo: `${reais(c.valor)} · venceu dia ${c.vencimento.slice(8)}/${c.vencimento.slice(5, 7)}` }
+  }
+  const total = todas.reduce((a, c) => a + cent(c.valor), 0) / 100
+  const partes = [
+    hoje.length && `${hoje.length} ${hoje.length === 1 ? 'vence' : 'vencem'} hoje`,
+    atrasadas.length && `${atrasadas.length} ${atrasadas.length === 1 ? 'está atrasada' : 'estão atrasadas'}`,
+  ].filter(Boolean)
+  return { titulo: `${todas.length} contas para pagar`, corpo: `${partes.join(' e ')} · ${reais(total)}` }
 }

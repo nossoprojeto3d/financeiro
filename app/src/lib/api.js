@@ -234,6 +234,22 @@ export const Api = (() => {
       body: { p_id: id, p_forma: forma, p_data: data, p_valor: valor, p_valor_esperado: valorEsperado } })
       .then(r => (Array.isArray(r) ? r[0] : r)),
 
+    // V5.1: avisos de vencimento no iPhone
+    salvarAviso: d => rest('push_inscricoes?on_conflict=endpoint', { method: 'POST', body: d, prefer: 'return=minimal,resolution=merge-duplicates' }),
+    excluirAviso: endpoint => rest(`push_inscricoes?endpoint=eq.${encodeURIComponent(endpoint)}`, { method: 'DELETE' }),
+    testarAviso: async () => {
+      await token(); await acordar();
+      const r = await chamar(`${C.SUPABASE_URL}/functions/v1/avisos`, {
+        method: 'POST',
+        headers: { apikey: C.SUPABASE_KEY, Authorization: `Bearer ${await token()}`, 'Content-Type': 'application/json' },
+        body: '{}'
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.status === 404 && !j.erro) throw new Error('A função de avisos ainda não foi publicada no Supabase.');
+      if (!r.ok) throw new Error(j.erro || `Erro ${r.status} nos avisos.`);
+      return j;
+    },
+
     // V2: análise com IA (Edge Function que guarda a chave do Gemini)
     analisar: async dados => {
       await token(); await acordar();

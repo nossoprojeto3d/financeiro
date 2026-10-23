@@ -1,5 +1,6 @@
 <script>
-  import { ChevronRight, ScanFace, LogOut, Repeat, RefreshCw, Plus, GripVertical, Smartphone, Minus } from '@lucide/svelte'
+  import { ChevronRight, ScanFace, LogOut, Repeat, RefreshCw, Plus, GripVertical, Smartphone, Minus, BellRing, Send } from '@lucide/svelte'
+  import { situacaoAvisos, avisosLigados, ligarAvisos, desligarAvisos, testarAvisos } from '../lib/avisos.js'
   import Folha from '../componentes/Folha.svelte'
   import Teclado from '../componentes/Teclado.svelte'
   import Dinheiro from '../componentes/Dinheiro.svelte'
@@ -13,6 +14,34 @@
   import { fmt, hoje } from '../lib/formato.js'
 
   let faceId = $state(Lock.ativo())
+
+  // Avisos de vencimento neste aparelho: 'instalar' | 'semsuporte' | 'bloqueado' | 'pronto'
+  let avisos = $state(situacaoAvisos())
+  let avisosOn = $state(false)
+  let mexendoAvisos = $state(false)
+  avisosLigados().then(v => (avisosOn = v)).catch(() => {})
+  const subAvisos = $derived({
+    instalar: 'Abra o app pela tela de início do iPhone para ligar',
+    semsuporte: 'Este navegador não recebe notificações',
+    bloqueado: 'Bloqueado: libere em Ajustes do iPhone › Notificações › Financeiro NP3D',
+    pronto: avisosOn ? 'Ligado: todo dia às 8h, se houver conta vencendo ou atrasada' : 'Todo dia às 8h, se houver conta vencendo ou atrasada',
+  }[avisos])
+  async function alternarAvisos() {
+    if (mexendoAvisos || avisos !== 'pronto') return
+    mexendoAvisos = true
+    try {
+      if (avisosOn) { await desligarAvisos(); avisosOn = false; avisar('Avisos desligados neste aparelho') }
+      else { await ligarAvisos(); avisosOn = true; avisar('Avisos ligados neste aparelho') }
+    } catch (e) { tratarErro(e) }
+    finally { avisos = situacaoAvisos(); mexendoAvisos = false }
+  }
+  async function mandarTeste() {
+    if (mexendoAvisos) return
+    mexendoAvisos = true
+    try { await testarAvisos(); avisar('Notificação de teste enviada') }
+    catch (e) { tratarErro(e) }
+    finally { mexendoAvisos = false }
+  }
   let aba = $state('saida')
   const cats = $derived(S.categorias.filter(c => c.tipo === aba).sort(temOrdem() ? porOrdem : (a, b) => a.nome.localeCompare(b.nome)))
   let folha = $state(null) // { tipo: 'cat' | 'recs' | 'rec', ... }
@@ -215,6 +244,16 @@
     <section>
       <h2 class="mb-2 px-1 text-[13px] text-txt-3">Automático</h2>
       <div class="overflow-hidden rounded-[22px] border border-linha bg-sup">
+        {#if S.temContas}
+          <button class="flex w-full items-center gap-3.5 border-b border-linha/60 px-4 py-3.5 text-left disabled:opacity-60" aria-pressed={avisosOn} disabled={avisos !== 'pronto'} onclick={alternarAvisos}>
+            <BellRing size={19} class="shrink-0 text-txt-3" />
+            <span class="min-w-0 flex-1"><span class="block text-[15px]">Avisar vencimentos neste iPhone</span><span class="block text-[12px] text-txt-3">{subAvisos}</span></span>
+            {#if avisos === 'pronto'}<span class="relative h-7 w-12 shrink-0 rounded-full transition-colors {avisosOn ? 'bg-ambar' : 'bg-sup-3'}"><span class="absolute top-1 left-1 size-5 rounded-full bg-white transition-transform {avisosOn ? 'translate-x-5' : ''}"></span></span>{/if}
+          </button>
+          {#if avisosOn}
+            {@render opcao(Send, 'Mandar notificação de teste', 'Para ver se está chegando', '', mandarTeste)}
+          {/if}
+        {/if}
         {@render opcao(Repeat, 'Lançamentos que se repetem', 'Assinaturas e contas lançadas sozinhas todo mês', String(S.recorrentes.filter(r => r.ativa).length || ''), () => (folha = { tipo: 'recs' }))}
       </div>
     </section>

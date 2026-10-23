@@ -4,6 +4,8 @@
 export const CONFIG = {
   SUPABASE_URL: 'https://sruvkpqzpjqeqkesqffq.supabase.co',
   SUPABASE_KEY: 'sb_publishable_oETMODMZSazY4tWIYmOWLw_aqT6zY9l',
+  // Chave pública dos avisos no iPhone (a privada fica só no segredo VAPID_PRIVADA da função "avisos")
+  VAPID_PUBLICA: 'BPhFRkz0OxqjhFWFGhducSEP9vyAEfUf-ZVyQPXaWfP8yQrgdxB5zshat2oSgbJ3_w_BBYe6ElFsrU2riSjWPaY',
   // Aparecem como botões na tela de login (só digita a senha)
   USUARIOS: [
     { nome: 'Junior', email: 'juniorm2488@gmail.com' },

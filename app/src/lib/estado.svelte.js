@@ -9,7 +9,7 @@ import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
 import { novoPendente, juntarComFila, lerFila, gravarFila } from './fila.js'
 import { ordenarContas } from './contas.js'
 
-export const VERSAO = '5.0.0'
+export const VERSAO = '5.1.0'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app' | 'semrede'
@@ -253,6 +253,15 @@ export async function sincronizar() {
 }
 
 /* ---------- Entrar, travar e sair ---------- */
+// Tela pedida pela notificação (./?tela=pagar, ou mensagem do service worker com o app já aberto)
+const TELAS_LINK = ['pagar', 'receber']
+let telaPedida = null
+function abrirTelaPedida() {
+  if (!telaPedida || S.fase !== 'app') return
+  if (TELAS_LINK.includes(telaPedida)) irPara(telaPedida)
+  telaPedida = null
+}
+
 // Abre na hora com os últimos dados guardados e atualiza por trás
 function abrirComGuardados() {
   let cache = null
@@ -267,6 +276,7 @@ function abrirComGuardados() {
   marcarUso()
   iniciarSync()
   sincronizar()
+  abrirTelaPedida()
   return true
 }
 
@@ -281,6 +291,7 @@ export async function entrar(acabouDeLogar = false) {
   S.fase = 'app'
   marcarUso()
   iniciarSync()
+  abrirTelaPedida()
   enviarFila().catch(tratarErro)
   if (acabouDeLogar && !Lock.ativo() && await Lock.disponivel()) S.ofertaFaceId = true
 }
@@ -647,6 +658,11 @@ export async function excluirRecorrente(r) {
 
 /* ---------- Início ---------- */
 export function iniciar() {
+  const pedida = new URLSearchParams(location.search).get('tela')
+  if (pedida) { telaPedida = pedida; history.replaceState(null, '', location.pathname) }
+  navigator.serviceWorker?.addEventListener('message', e => {
+    if (e.data?.tipo === 'abrir' && e.data.tela) { telaPedida = e.data.tela; abrirTelaPedida() }
+  })
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {})
     // Versão nova assumiu: recarrega uma vez para já abrir nela (se não estiver no meio de algo)
