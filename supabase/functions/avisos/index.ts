@@ -12,7 +12,7 @@
 
 import webpush from 'npm:web-push@3.6.7'
 // Mesma regra do app (testada em app/src/lib/contas.test.js): o texto da notificação
-import { mensagemAviso } from 'https://cdn.jsdelivr.net/gh/nossoprojeto3d/financeiro@main/app/src/lib/contas.js'
+import { mensagemAviso } from 'https://cdn.jsdelivr.net/gh/nossoprojeto3d/financeiro@ee312b6f47a8f3bda9501cee26357f1334baa04c/app/src/lib/contas.js'
 
 const ORIGEM = 'https://nossoprojeto3d.github.io'
 const CORS = {

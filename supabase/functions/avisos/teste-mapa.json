@@ -1,0 +1,1 @@
+{ "imports": { "https://cdn.jsdelivr.net/gh/nossoprojeto3d/financeiro@ee312b6f47a8f3bda9501cee26357f1334baa04c/app/src/lib/contas.js": "../../../app/src/lib/contas.js" } }
