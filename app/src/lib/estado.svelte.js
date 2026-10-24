@@ -9,7 +9,7 @@ import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
 import { novoPendente, juntarComFila, lerFila, gravarFila } from './fila.js'
 import { ordenarContas } from './contas.js'
 
-export const VERSAO = '5.1.0'
+export const VERSAO = '5.1.1'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app' | 'semrede'
@@ -256,6 +256,18 @@ export async function sincronizar() {
 // Tela pedida pela notificação (./?tela=pagar, ou mensagem do service worker com o app já aberto)
 const TELAS_LINK = ['pagar', 'receber']
 let telaPedida = null
+// O service worker anota a tela no cache "caixa-aviso" ao tocar na notificação (vale por 10 min)
+async function lerTelaDoAviso() {
+  try {
+    if (!('caches' in window)) return
+    const c = await caches.open('caixa-aviso')
+    const r = await c.match('./tela-pedida')
+    if (!r) return
+    await c.delete('./tela-pedida')
+    const { tela, em } = await r.json()
+    if (tela && Date.now() - em < 10 * 60e3) { telaPedida = tela; abrirTelaPedida() }
+  } catch (_) {}
+}
 function abrirTelaPedida() {
   if (!telaPedida || S.fase !== 'app') return
   if (TELAS_LINK.includes(telaPedida)) irPara(telaPedida)
@@ -663,6 +675,7 @@ export function iniciar() {
   navigator.serviceWorker?.addEventListener('message', e => {
     if (e.data?.tipo === 'abrir' && e.data.tela) { telaPedida = e.data.tela; abrirTelaPedida() }
   })
+  lerTelaDoAviso()
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
     navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).catch(() => {})
     // Versão nova assumiu: recarrega uma vez para já abrir nela (se não estiver no meio de algo)
@@ -683,6 +696,7 @@ export function iniciar() {
   addEventListener('pagehide', marcarUso)
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return marcarUso()
+    lerTelaDoAviso() // voltou para a frente: veio de um toque na notificação?
     if (S.fase !== 'app') return
     if (precisaTravar()) { S.confirmar = null; S.fase = 'trava'; return }
     sincronizar() // voltou para o app: confere na hora se tem novidade

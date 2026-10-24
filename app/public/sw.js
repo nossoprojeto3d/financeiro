@@ -1,6 +1,6 @@
 // Service worker: app funciona instalado e abre mesmo sem internet.
 // Ao publicar uma versão nova, mude o número abaixo (e VERSAO em src/lib/estado.svelte.js).
-const CACHE = 'caixa-v5.1.0';
+const CACHE = 'caixa-v5.1.1';
 const ARQUIVOS = ['./', './index.html', './manifest.json', './favicon.svg',
   './icons/icon-192.png', './icons/icon-512.png', './icons/apple-touch-icon.png'];
 
@@ -15,7 +15,7 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(ks => Promise.all(ks.filter(k => k !== CACHE && k !== 'caixa-aviso').map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -48,13 +48,24 @@ self.addEventListener('push', e => {
   }))
 })
 
-// Tocar na notificação: abre (ou traz para a frente) o app já na tela "A pagar"
+// Tocar na notificação: abre (ou traz para a frente) o app já na tela "A pagar".
+// No iPhone, o app instalado nem sempre recebe o recado nem abre no endereço pedido: por isso a tela
+// fica anotada num cache ("caixa-aviso"), que o app lê ao abrir e ao voltar para a frente.
 self.addEventListener('notificationclick', e => {
   e.notification.close()
   const url = new URL(e.notification.data?.url || './', self.registration.scope)
-  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(lista => {
+  const tela = url.searchParams.get('tela')
+  e.waitUntil((async () => {
+    if (tela) {
+      const c = await caches.open('caixa-aviso')
+      await c.put('./tela-pedida', new Response(JSON.stringify({ tela, em: Date.now() })))
+    }
+    const lista = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
     const aberto = lista[0]
-    if (aberto) { aberto.postMessage({ tipo: 'abrir', tela: url.searchParams.get('tela') }); return aberto.focus() }
-    return self.clients.openWindow(url.href)
-  }))
+    if (aberto) {
+      aberto.postMessage({ tipo: 'abrir', tela })
+      try { return await aberto.focus() } catch (_) {}
+    }
+    try { return await self.clients.openWindow(url.href) } catch (_) {}
+  })())
 })
