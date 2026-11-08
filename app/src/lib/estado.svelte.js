@@ -9,7 +9,7 @@ import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
 import { novoPendente, juntarComFila, lerFila, gravarFila } from './fila.js'
 import { ordenarContas } from './contas.js'
 
-export const VERSAO = '5.1.1'
+export const VERSAO = '5.1.2'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app' | 'semrede'

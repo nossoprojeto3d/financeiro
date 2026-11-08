@@ -77,5 +77,5 @@ ok('agenda sem nada vencendo: não manda nada', j.enviados === 0 && estado.pushe
 r = await post({ Authorization: 'Bearer token-junior', apikey: 'chave-publica-teste' }); j = await r.json()
 ok('teste: manda só para os aparelhos de quem pediu', r.status === 200 && j.enviados === 1 && estado.pushes.length === 1 && estado.pushes[0].onde === '/push/vivo', JSON.stringify(j))
 r = await fetch(F, { method: 'OPTIONS' })
-ok('CORS: só o endereço do app', r.headers.get('access-control-allow-origin') === 'https://nossoprojeto3d.github.io'); await r.body?.cancel()
+ok('CORS: só o endereço do app', r.headers.get('access-control-allow-origin') === 'https://nossoprojeto3d.com.br'); await r.body?.cancel()
 Deno.exit(0)

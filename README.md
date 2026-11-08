@@ -41,7 +41,7 @@ Depois faça commit e push da `main`. Antes, suba `CACHE` em `app/public/sw.js` 
 ### 2. App
 1. Abra `app/src/lib/config.js` e preencha `SUPABASE_URL`, `SUPABASE_KEY` e os dois e-mails. Gere o build (veja acima).
 2. Crie o repositório `nossoprojeto3d/caixa` no GitHub e suba todos os arquivos.
-3. Em **Settings › Pages**, publique a branch `main`, pasta raiz. O endereço fica `https://nossoprojeto3d.github.io/caixa/`.
+3. Em **Settings › Pages**, publique a branch `main`, pasta raiz. O endereço fica `https://nossoprojeto3d.com.br/financeiro/`.
 
 ### 3. iPhone
 1. Abra o endereço no **Safari**, toque em **Compartilhar › Adicionar à Tela de Início**.

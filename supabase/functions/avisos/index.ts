@@ -14,7 +14,7 @@ import webpush from 'npm:web-push@3.6.7'
 // Mesma regra do app (testada em app/src/lib/contas.test.js): o texto da notificação
 import { mensagemAviso } from 'https://cdn.jsdelivr.net/gh/nossoprojeto3d/financeiro@ee312b6f47a8f3bda9501cee26357f1334baa04c/app/src/lib/contas.js'
 
-const ORIGEM = 'https://nossoprojeto3d.github.io'
+const ORIGEM = 'https://nossoprojeto3d.com.br'
 const CORS = {
   'Access-Control-Allow-Origin': ORIGEM,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -87,7 +87,7 @@ Deno.serve(async req => {
 
   const pub = Deno.env.get('VAPID_PUBLICA'), priv = Deno.env.get('VAPID_PRIVADA')
   if (!pub || !priv || !SERVICO) return json({ erro: 'Faltam os segredos VAPID_PUBLICA e VAPID_PRIVADA na função avisos.' }, 500)
-  webpush.setVapidDetails('https://nossoprojeto3d.github.io/financeiro/', pub, priv)
+  webpush.setVapidDetails('https://nossoprojeto3d.com.br/financeiro/', pub, priv)
 
   try {
     // 1) agendamento das 8h

@@ -8,7 +8,7 @@
 //   GEMINI_MODEL    → opcional; padrão "gemini-flash-latest"
 
 // Só o endereço do app pode chamar esta função pelo navegador
-const ORIGEM = 'https://nossoprojeto3d.github.io';
+const ORIGEM = 'https://nossoprojeto3d.com.br';
 const CORS = {
   'Access-Control-Allow-Origin': ORIGEM,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
