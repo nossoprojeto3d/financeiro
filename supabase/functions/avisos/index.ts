@@ -5,7 +5,7 @@
 //   • O botão "Mandar notificação de teste" (Ajustes) chama com o login do usuário: manda só
 //     para os aparelhos dele.
 //
-// Segredos (Edge Functions › Secrets), valores no arquivo ~/Claude/financeiro-chaves-avisos.txt:
+// Segredos (Edge Functions › Secrets), valores no arquivo ~/Claude/financeiro/.segredos/financeiro-chaves-avisos.txt:
 //   VAPID_PUBLICA, VAPID_PRIVADA → par de chaves das notificações (a pública também está no app)
 //   AVISOS_SEGREDO               → senha que só o agendamento conhece
 // Publicar com "Verify JWT" DESLIGADO: o agendamento não tem login; a função confere sozinha.

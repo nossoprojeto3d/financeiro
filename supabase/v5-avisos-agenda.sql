@@ -1,7 +1,7 @@
 -- =====================================================================
 --  Financeiro NP3D — agenda dos avisos: todo dia às 8h (Brasília) chama a função "avisos"
 --  ANTES DE RODAR: troque COLE_A_SENHA_AQUI pelo valor de AVISOS_SEGREDO do arquivo
---  ~/Claude/financeiro-chaves-avisos.txt (o mesmo que foi guardado como segredo da função).
+--  ~/Claude/financeiro/.segredos/financeiro-chaves-avisos.txt (o mesmo que foi guardado como segredo da função).
 --  NUNCA salve este arquivo com a senha no repositório: ele é público.
 --  Pode rodar mais de uma vez (troca o agendamento antigo pelo novo).
 -- =====================================================================

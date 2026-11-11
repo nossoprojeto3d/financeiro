@@ -1,3 +1,6 @@
 .DS_Store
 test-results/
 playwright-report/
+
+# Senhas e chaves dos avisos: ficam só neste Mac, nunca no GitHub
+.segredos/
