@@ -7,9 +7,9 @@ import { cent, hoje, deISO, fmt } from './formato.js'
 import { corDaPosicao } from './dados.js'
 import { ordenarFiados, categoriaPadraoFiado, falta } from './fiados.js'
 import { novoPendente, juntarComFila, lerFila, gravarFila } from './fila.js'
-import { ordenarContas } from './contas.js'
+import { ordenarContas, vezesDa, mesFinal, parcelaDe } from './contas.js'
 
-export const VERSAO = '5.1.2'
+export const VERSAO = '5.2.0'
 
 export const S = $state({
   fase: 'carregando', // 'carregando' | 'login' | 'trava' | 'app' | 'semrede'
@@ -380,9 +380,9 @@ export function abrirConta(ct = null) {
   S.lancar = ct
     ? { id: ct.id, tipo: 'saida', centavos: Math.round(ct.valor * 100), categoria_id: ct.categoria_id, data: ct.vencimento,
         descricao: ct.descricao, forma_pagamento: '', usuario_id: ct.usuario_id, repetir: !!ct.regra_id, regra_id: ct.regra_id,
-        recorrente_id: null, fiado: false, conta: true, nome: '' }
+        vezes: vezesDa(regraDa(ct)), recorrente_id: null, fiado: false, conta: true, nome: '' }
     : { id: null, tipo: 'saida', centavos: 0, categoria_id: null, data: hoje(), descricao: '', forma_pagamento: '',
-        usuario_id: S.perfil.id, repetir: false, regra_id: null, fiado: false, conta: true, nome: '' }
+        usuario_id: S.perfil.id, repetir: false, regra_id: null, vezes: null, fiado: false, conta: true, nome: '' }
 }
 
 // Formulário no modo fiado: sem argumento anota um novo; com um fiado, edita
@@ -504,14 +504,32 @@ function contaSumiu(id) {
   return new Error(CONTA_SUMIU)
 }
 const diaDe = iso => Number(iso.slice(8, 10))
+export const regraDa = ct => (ct?.regra_id ? S.regrasContas.find(r => r.id === ct.regra_id) || null : null)
+
+// "Repetir todo mês" com fim: a 1ª parcela é a conta do formulário (ou a 1ª que a regra já tinha)
+function fimDaRegra(f, regra) {
+  if (!f.vezes) return { inicio: regra?.inicio ?? null, ate: null }
+  const inicio = regra?.ate && regra.inicio ? regra.inicio : f.data
+  return { inicio, ate: mesFinal(inicio, f.vezes) }
+}
 
 async function salvarConta(f) {
   const dados = { descricao: f.descricao.trim(), valor: f.centavos / 100, categoria_id: f.categoria_id,
     vencimento: f.data, usuario_id: f.usuario_id }
+  if (f.repetir && f.vezes != null && !(Number.isInteger(f.vezes) && f.vezes >= 2 && f.vezes <= 120))
+    throw new Error('Repetir: de 2 a 120 vezes.')
   const novaRegra = () => Api.criarRegraConta({ descricao: dados.descricao, valor: dados.valor, categoria_id: dados.categoria_id,
-    dia: diaDe(f.data), gerado_ate: f.data, usuario_id: f.usuario_id })
+    dia: diaDe(f.data), gerado_ate: f.data, usuario_id: f.usuario_id, ...(f.vezes ? fimDaRegra(f, null) : {}) })
   if (f.id) {
     let regra_id = f.regra_id || null
+    const regra = regraDa({ regra_id })
+    if (f.repetir && regra_id && regra && vezesDa(regra) !== (f.vezes || null)) {
+      const fim = fimDaRegra(f, regra)
+      const p = fim.ate && parcelaDe({ vencimento: f.data }, { ...regra, ...fim })
+      if (fim.ate && !p) throw new Error('Essa conta já passou do número de vezes. Aumente as vezes.')
+      const r = await Api.editarRegraConta(regra_id, fim)
+      if (r) Object.assign(regra, numerico(r))
+    }
     if (f.repetir && !regra_id) { const r = await novaRegra(); S.regrasContas.push(numerico(r)); regra_id = r.id }
     if (!f.repetir && regra_id) { await Api.excluirRegraConta(regra_id); S.regrasContas = S.regrasContas.filter(r => r.id !== regra_id); regra_id = null }
     const r = await Api.editarConta(f.id, { ...dados, regra_id })
@@ -534,15 +552,17 @@ export async function excluirConta(id) {
   guardarCache()
 }
 
-// Paguei: a saída entra no caixa e a conta sai da lista (as mensais voltam no mês seguinte)
-export async function pagarConta(ct, forma, data, valor) {
+// Paguei: a saída entra no caixa e a conta sai da lista (as mensais voltam no mês seguinte).
+// adiantar = paga também a próxima parcela; a regra pula aquele mês.
+export async function pagarConta(ct, forma, data, valor, adiantar = false) {
   try {
-    const lanc = numerico(await Api.pagarConta(ct.id, forma, data, valor, ct.valor))
-    S.lancs.push(lanc)
+    const lancs = (await Api.pagarConta(ct.id, forma, data, valor, ct.valor, adiantar)).map(numerico)
+    S.lancs.push(...lancs)
     ordenar(S.lancs)
     S.contas = S.contas.filter(x => x.id !== ct.id)
+    if (adiantar) { const r = regraDa(ct); if (r) r.gerado_ate = mesFinal(ct.vencimento, 2) }
     guardarCache()
-    return lanc
+    return lancs
   } catch (e) {
     if (e.message === CONTA_SUMIU || e.message === CONTA_MUDOU) carregarTudo().catch(() => {})
     throw e

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { situacao, ordenarContas, resumoContas, mensagemAviso } from './contas.js'
+import { situacao, ordenarContas, resumoContas, mensagemAviso, mesFinal, mesAno, vezesDa, parcelaDe, podeAdiantar } from './contas.js'
 
 describe('situacao (o que aparece em cada conta)', () => {
   const h = '2026-10-23'
@@ -63,5 +63,32 @@ describe('mensagemAviso (notificação das 8h)', () => {
   it('várias só atrasadas', () => {
     const l = [{ descricao: 'A', valor: 10, vencimento: '2026-10-20' }, { descricao: 'B', valor: 20, vencimento: '2026-10-22' }]
     expect(mensagemAviso(l, h)).toEqual({ titulo: '2 contas para pagar', corpo: '2 estão atrasadas · R$ 30,00' })
+  })
+})
+
+describe('parcelas (contas que repetem até um mês)', () => {
+  const regra = { inicio: '2026-11-30', ate: '2027-08-01', gerado_ate: '2027-01-30' }
+  it('mês final e quantas vezes', () => {
+    expect(mesFinal('2026-11-30', 10)).toBe('2027-08-01')
+    expect(mesFinal('2026-01-15', 12)).toBe('2026-12-01')
+    expect(mesFinal('2026-12-05', 2)).toBe('2027-01-01')
+    expect(mesAno('2027-08-01')).toBe('ago/2027')
+    expect(vezesDa(regra)).toBe(10)
+    expect(vezesDa({ inicio: '2026-11-30', ate: null })).toBe(null)
+    expect(vezesDa(null)).toBe(null)
+  })
+  it('em qual parcela a conta está', () => {
+    expect(parcelaDe({ vencimento: '2026-11-30' }, regra)).toEqual({ n: 1, total: 10 })
+    expect(parcelaDe({ vencimento: '2027-01-30' }, regra)).toEqual({ n: 3, total: 10 })
+    expect(parcelaDe({ vencimento: '2027-08-31' }, regra)).toEqual({ n: 10, total: 10 })
+    expect(parcelaDe({ vencimento: '2027-09-30' }, regra)).toBe(null) // fim encurtado depois
+    expect(parcelaDe({ vencimento: '2027-01-30' }, { inicio: '2026-11-30', ate: null })).toBe(null)
+  })
+  it('adiantar só quando tem próxima e ela ainda não está na lista', () => {
+    expect(podeAdiantar({ vencimento: '2027-01-30' }, regra)).toBe(true)
+    // atrasada do mês passado, com a deste mês já na lista: paga a deste mês por ela
+    expect(podeAdiantar({ vencimento: '2026-12-30' }, regra)).toBe(false)
+    expect(podeAdiantar({ vencimento: '2027-08-31' }, { ...regra, gerado_ate: '2027-08-31' })).toBe(false) // última
+    expect(podeAdiantar({ vencimento: '2027-01-30' }, { inicio: '2026-11-30', ate: null, gerado_ate: '2027-01-30' })).toBe(false)
   })
 })

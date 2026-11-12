@@ -53,3 +53,35 @@ export function mensagemAviso(lista, hojeISO) {
   ].filter(Boolean)
   return { titulo: `${todas.length} contas para pagar`, corpo: `${partes.join(' e ')} · ${reais(total)}` }
 }
+
+/* ---------- Contas com fim (parcelas) ---------- */
+// regra.inicio = vencimento da 1ª; regra.ate = mês da última (dia 1); ate vazio = repete sempre
+const numMes = iso => Number(iso.slice(0, 4)) * 12 + Number(iso.slice(5, 7)) - 1
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+
+// mês da última parcela ('AAAA-MM-01'), contando a de "inicio" como a 1ª
+export function mesFinal(inicioISO, vezes) {
+  const m = numMes(inicioISO) + vezes - 1
+  return `${Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, '0')}-01`
+}
+// "ago/2027"
+export const mesAno = iso => `${MESES[Number(iso.slice(5, 7)) - 1]}/${iso.slice(0, 4)}`
+
+// quantas vezes a regra tem (null = sempre)
+export const vezesDa = regra => (regra?.ate && regra.inicio ? numMes(regra.ate) - numMes(regra.inicio) + 1 : null)
+
+// "3 de 10": em qual parcela a conta está. null quando a conta repete sempre (ou não repete).
+export function parcelaDe(conta, regra) {
+  const total = vezesDa(regra)
+  if (!total) return null
+  const n = numMes(conta.vencimento) - numMes(regra.inicio) + 1
+  return n >= 1 && n <= total ? { n, total } : null
+}
+
+// Dá para pagar a próxima junto? Só se tiver próxima e ela ainda não estiver na lista.
+// (mesma regra do pagar_conta em supabase/v5-contas-parcelas.sql)
+export function podeAdiantar(conta, regra) {
+  const p = parcelaDe(conta, regra)
+  if (!p || p.n >= p.total) return false
+  return !regra.gerado_ate || numMes(regra.gerado_ate) <= numMes(conta.vencimento)
+}

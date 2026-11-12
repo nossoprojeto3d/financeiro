@@ -9,6 +9,10 @@ const THAI = '00000000-0000-0000-0000-00000000000b'
 
 const iso = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 const diasAtras = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d) }
+// mesma conta de meses do v5-contas-parcelas.sql (parcelas: 1ª em "inicio", última no mês "ate")
+const numMes = s => Number(s.slice(0, 4)) * 12 + Number(s.slice(5, 7)) - 1
+const mesISO = m => `${Math.floor(m / 12)}-${String((m % 12) + 1).padStart(2, '0')}-01`
+const vencNoMes = (m, dia) => { const ult = new Date(Math.floor(m / 12), (m % 12) + 1, 0).getDate(); return mesISO(m).slice(0, 8) + String(Math.min(dia, ult)).padStart(2, '0') }
 
 function bancoInicial() {
   const nomes = [
@@ -54,13 +58,17 @@ function bancoInicial() {
     seq: 1000,
     perfis: [{ id: EU, nome: 'Junior', cor: '#4FE0A5' }, { id: THAI, nome: 'Thai', cor: '#FF7B8B' }],
     categorias, lancamentos, recorrentes: [], fiados,
-    // contas a pagar: uma atrasada, uma vencendo hoje, a energia que volta todo mês e uma mais longe
-    contas_regras: [{ id: 1, descricao: 'Energia', valor: 180, categoria_id: 12, dia: Number(diasAtras(-3).slice(8)), gerado_ate: diasAtras(-3), usuario_id: EU, atualizado_em: 't0' }],
+    // contas a pagar: uma atrasada, uma vencendo hoje, a energia que volta todo mês e a impressora em 10x (na 3ª)
+    contas_regras: [
+      { id: 1, descricao: 'Energia', valor: 180, categoria_id: 12, dia: Number(diasAtras(-3).slice(8)), gerado_ate: diasAtras(-3), usuario_id: EU, atualizado_em: 't0' },
+      { id: 2, descricao: 'Parcela da impressora', valor: 450, categoria_id: 11, dia: Number(diasAtras(-20).slice(8)), gerado_ate: diasAtras(-20),
+        inicio: vencNoMes(numMes(diasAtras(-20)) - 2, Number(diasAtras(-20).slice(8))), ate: mesISO(numMes(diasAtras(-20)) + 7), usuario_id: EU, atualizado_em: 't0' },
+    ],
     contas: [
       { id: 1, descricao: 'Boleto filamento', valor: 320, categoria_id: 6, vencimento: diasAtras(2), regra_id: null, usuario_id: THAI },
       { id: 2, descricao: 'Internet', valor: 99.9, categoria_id: 12, vencimento: diasAtras(0), regra_id: null, usuario_id: EU },
       { id: 3, descricao: 'Energia', valor: 180, categoria_id: 12, vencimento: diasAtras(-3), regra_id: 1, usuario_id: EU },
-      { id: 4, descricao: 'Parcela da impressora', valor: 450, categoria_id: 11, vencimento: diasAtras(-20), regra_id: null, usuario_id: EU },
+      { id: 4, descricao: 'Parcela da impressora', valor: 450, categoria_id: 11, vencimento: diasAtras(-20), regra_id: 2, usuario_id: EU },
     ].map(c => ({ ...c, atualizado_em: 't0' })),
   }
 }
@@ -112,7 +120,7 @@ window.fetch = async (url, op = {}) => {
     let n = 0
     for (const r of db.contas_regras) {
       const base = r.gerado_ate ? new Date(+r.gerado_ate.slice(0, 4), +r.gerado_ate.slice(5, 7), 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
-      for (let d = base; iso(d).slice(0, 7) <= mesAtual; d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
+      for (let d = base; iso(d).slice(0, 7) <= mesAtual && (!r.ate || iso(d).slice(0, 7) <= r.ate.slice(0, 7)); d = new Date(d.getFullYear(), d.getMonth() + 1, 1)) {
         const ult = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
         const v = iso(new Date(d.getFullYear(), d.getMonth(), Math.min(r.dia, ult)))
         if (!db.contas.some(c => c.regra_id === r.id && c.vencimento === v)) {
@@ -131,13 +139,24 @@ window.fetch = async (url, op = {}) => {
     const c = db.contas[i]
     if (corpo.p_valor_esperado != null && corpo.p_valor_esperado !== c.valor) return erro('Essa conta mudou agora há pouco (outro celular). Confira a lista e tente de novo.')
     if (!corpo.p_data || corpo.p_data > iso(new Date())) return erro('A data do pagamento não pode ser no futuro.')
-    const l = { id: ++db.seq, tipo: 'saida', valor: corpo.p_valor, categoria_id: c.categoria_id,
-      descricao: `${c.descricao.trim()} · vencimento ${c.vencimento.slice(8)}/${c.vencimento.slice(5, 7)}`, forma_pagamento: corpo.p_forma.trim(),
-      data: corpo.p_data, usuario_id: EU, recorrente_id: null, atualizado_em: 't' + db.seq }
-    db.lancamentos.push(l)
+    const rg = db.contas_regras.find(r => r.id === c.regra_id)
+    const total = rg?.ate ? numMes(rg.ate) - numMes(rg.inicio) + 1 : null
+    const n = total && numMes(c.vencimento) - numMes(rg.inicio) + 1
+    const saida = (valor, descricao) => ({ id: ++db.seq, tipo: 'saida', valor, categoria_id: c.categoria_id, descricao, forma_pagamento: corpo.p_forma.trim(),
+      data: corpo.p_data, usuario_id: EU, recorrente_id: null, atualizado_em: 't' + db.seq })
+    const feitas = [saida(corpo.p_valor, `${c.descricao.trim()} · ${total && n >= 1 && n <= total ? `${n}/${total}` : `vencimento ${c.vencimento.slice(8)}/${c.vencimento.slice(5, 7)}`}`)]
+    if (corpo.p_adiantar) {
+      if (!total) return erro('Essa conta não tem parcelas para adiantar.')
+      const prox = numMes(c.vencimento) + 1
+      if (prox > numMes(rg.ate)) return erro('Essa já era a última parcela.')
+      if (rg.gerado_ate && numMes(rg.gerado_ate) >= prox) return erro('A próxima parcela já está na lista. Pague por ela.')
+      feitas.push(saida(rg.valor, `${rg.descricao.trim()} · ${n + 1}/${total}`))
+      rg.gerado_ate = vencNoMes(prox, rg.dia)
+    }
+    db.lancamentos.push(...feitas)
     db.contas.splice(i, 1)
     salvar()
-    return resp(l)
+    return resp(feitas)
   }
   if (caminho === 'rpc/receber_fiado') {
     // banco sem o v4-fiados-historico.sql (os testes ligam isto para ver o app se virar sem ele)

@@ -227,12 +227,14 @@ export const Api = (() => {
     excluirConta: id => rest(`contas?id=eq.${id}`, { method: 'DELETE', ...volta }),
     contasRegras: () => rest('contas_regras?select=*&order=dia'),
     criarRegraConta: d => rest('contas_regras', { method: 'POST', body: d, ...volta }).then(r => r[0]),
+    editarRegraConta: (id, d) => rest(`contas_regras?id=eq.${id}`, { method: 'PATCH', body: d, ...volta }).then(r => r[0]),
     excluirRegraConta: id => rest(`contas_regras?id=eq.${id}`, { method: 'DELETE' }),
     gerarContas: () => rest('rpc/gerar_contas', { method: 'POST', body: {} }),
-    // lança a saída e tira a conta da lista no mesmo passo; recusa se a conta mudou em outro celular
-    pagarConta: (id, forma, data, valor, valorEsperado) => rest('rpc/pagar_conta', { method: 'POST',
-      body: { p_id: id, p_forma: forma, p_data: data, p_valor: valor, p_valor_esperado: valorEsperado } })
-      .then(r => (Array.isArray(r) ? r[0] : r)),
+    // lança a saída e tira a conta da lista no mesmo passo; recusa se a conta mudou em outro celular.
+    // adiantar = paga também a próxima parcela (v5-contas-parcelas.sql). Devolve a lista de saídas.
+    pagarConta: (id, forma, data, valor, valorEsperado, adiantar = false) => rest('rpc/pagar_conta', { method: 'POST',
+      body: { p_id: id, p_forma: forma, p_data: data, p_valor: valor, p_valor_esperado: valorEsperado, ...(adiantar ? { p_adiantar: true } : {}) } })
+      .then(r => (Array.isArray(r) ? r : [r])),
 
     // V5.1: avisos de vencimento no iPhone
     salvarAviso: d => rest('push_inscricoes?on_conflict=endpoint', { method: 'POST', body: d, prefer: 'return=minimal,resolution=merge-duplicates' }),

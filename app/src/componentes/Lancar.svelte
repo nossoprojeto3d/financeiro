@@ -3,10 +3,11 @@
   import Teclado from './Teclado.svelte'
   import Folha from './Folha.svelte'
   import Dinheiro from './Dinheiro.svelte'
-  import { S, cat, perfil, categoriasDoTipo, abrirLancar, fecharLancar, salvarLanc, excluirLanc, excluirFiado, excluirConta, SUMIU, CONTA_SUMIU, criarCategoria, avisar, tratarErro } from '../lib/estado.svelte.js'
+  import { S, cat, perfil, categoriasDoTipo, abrirLancar, fecharLancar, salvarLanc, excluirLanc, excluirFiado, excluirConta, regraDa, SUMIU, CONTA_SUMIU, criarCategoria, avisar, tratarErro } from '../lib/estado.svelte.js'
   import { NATUREZAS, nomeNatureza, PAGAMENTOS } from '../lib/dados.js'
   import { hoje, ontem, dataBonita, deISO, fmt } from '../lib/formato.js'
   import { nomesUsados } from '../lib/fiados.js'
+  import { mesFinal, mesAno } from '../lib/contas.js'
 
   // modo 'tela' = celular (tela cheia); 'painel' = computador (fixo ao lado)
   // fixo = painel do Início no computador: depois de lançar, já abre um novo em branco
@@ -18,6 +19,8 @@
   const f = $derived(S.lancar)
   const c = $derived(f ? cat(f.categoria_id) : null)
   const cats = $derived(f ? categoriasDoTipo(f.tipo) : [])
+  // 1ª parcela: a que a regra já tinha (editando) ou a conta deste formulário
+  const inicioParcelas = $derived.by(() => { const r = f?.conta && regraDa(f); return r?.ate && r.inicio ? r.inicio : f?.data })
 
   let folha = $state(null) // 'cats' | 'detalhes' | 'excluir'
   let falta = $state(null) // campo que falta preencher: 'cat' | 'desc' (treme)
@@ -75,12 +78,12 @@
     if (!f.categoria_id) { marcarFalta('cat'); return avisar('Escolha a categoria.', 'erro') }
     if (!f.descricao.trim()) { marcarFalta('desc'); campoDesc?.focus(); return avisar('Escreva a descrição.', 'erro') }
     enviando = true
-    const editando = !!f.id, tipo = f.tipo, mensal = f.repetir, fiado = f.fiado, conta = f.conta
+    const editando = !!f.id, tipo = f.tipo, mensal = f.repetir, fiado = f.fiado, conta = f.conta, vezes = f.repetir && f.vezes
     try {
       const r = await salvarLanc(f)
       tentarDeNovo = false
       if (r?.pendente && !editando) avisar('Sem internet: ficou guardado aqui e vai sozinho quando a conexão voltar')
-      else avisar(editando ? 'Alterações salvas' : conta ? (mensal ? 'Conta mensal anotada' : 'Conta anotada') : fiado ? 'Fiado anotado' : mensal ? 'Lançamento mensal criado' : tipo === 'entrada' ? 'Entrada lançada' : 'Saída lançada')
+      else avisar(editando ? 'Alterações salvas' : conta ? (vezes ? `Conta anotada · ${vezes} vezes` : mensal ? 'Conta mensal anotada' : 'Conta anotada') : fiado ? 'Fiado anotado' : mensal ? 'Lançamento mensal criado' : tipo === 'entrada' ? 'Entrada lançada' : 'Saída lançada')
       if (fixo) abrirLancar(editando ? 'entrada' : tipo)
       else fecharLancar()
     } catch (e) {
@@ -128,7 +131,7 @@
     else fecharLancar()
   }
 
-  const resumoData = $derived(!f ? '' : f.conta ? `Vence ${f.data === hoje() ? 'hoje' : dataBonita(f.data).toLowerCase()}${f.repetir ? ' · todo mês' : ''}` : f.repetir ? `Todo dia ${deISO(f.data).getDate()}` : dataBonita(f.data))
+  const resumoData = $derived(!f ? '' : f.conta ? `Vence ${f.data === hoje() ? 'hoje' : dataBonita(f.data).toLowerCase()}${f.repetir ? (f.vezes ? ` · ${f.vezes}x` : ' · todo mês') : ''}` : f.repetir ? `Todo dia ${deISO(f.data).getDate()}` : dataBonita(f.data))
   const corTipo = $derived(f?.tipo === 'saida' ? 'text-sai' : 'text-ent')
 </script>
 
@@ -316,6 +319,19 @@
           <span class="flex-1"><span class="block text-[15px]">Repetir todo mês</span><span class="text-[13px] text-txt-3">{f.conta ? (f.repetir ? `A conta volta todo dia ${deISO(f.data).getDate()}, esperando o Paguei` : 'Para energia, internet, aluguel…') : f.repetir ? `Lança sozinho todo dia ${deISO(f.data).getDate()}` : 'Para assinaturas e contas do mês'}</span></span>
           <span class="relative h-7 w-12 rounded-full transition-colors {f.repetir ? 'bg-ambar' : 'bg-sup-3'}"><span class="absolute top-1 left-1 size-5 rounded-full bg-white transition-transform {f.repetir ? 'translate-x-5' : ''}"></span></span>
         </button>
+        {#if f.conta && f.repetir}
+          <!-- até quando: sempre, ou N vezes (parcelas: a conta deste formulário é a 1ª) -->
+          <div class="mt-2 flex gap-2">
+            <button class="h-10 rounded-full px-4 text-[14px] font-medium {!f.vezes ? 'bg-txt text-fundo' : 'border border-linha text-txt-2'}" onclick={() => (f.vezes = null)}>Sempre</button>
+            <label class="flex h-10 items-center gap-1.5 rounded-full px-4 text-[14px] font-medium {f.vezes ? 'bg-txt text-fundo' : 'border border-linha text-txt-2'}">
+              <input type="text" inputmode="numeric" maxlength="3" placeholder="10" aria-label="Quantas vezes"
+                value={f.vezes ?? ''} oninput={e => { const n = parseInt(e.currentTarget.value.replace(/\D/g, ''), 10); f.vezes = n > 0 ? n : null }}
+                class="w-9 bg-transparent text-center text-[16px] outline-none placeholder:text-current placeholder:opacity-50" />
+              vezes
+            </label>
+          </div>
+          {#if f.vezes >= 2}<p class="mt-2 text-[13px] text-txt-3">Última em {mesAno(mesFinal(inicioParcelas, f.vezes))}</p>{/if}
+        {/if}
       {/if}
 
       {#if !f.fiado && !f.conta}

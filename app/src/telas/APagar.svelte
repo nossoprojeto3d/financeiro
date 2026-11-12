@@ -4,8 +4,8 @@
   import Folha from '../componentes/Folha.svelte'
   import Dinheiro from '../componentes/Dinheiro.svelte'
   import Teclado from '../componentes/Teclado.svelte'
-  import { S, irPara, abrirConta, pagarConta, avisar, tratarErro, CONTA_MUDOU } from '../lib/estado.svelte.js'
-  import { situacao, resumoContas } from '../lib/contas.js'
+  import { S, irPara, abrirConta, pagarConta, regraDa, avisar, tratarErro, CONTA_MUDOU } from '../lib/estado.svelte.js'
+  import { situacao, resumoContas, parcelaDe, podeAdiantar } from '../lib/contas.js'
   import { cent, fmt, hoje, ontem } from '../lib/formato.js'
   import { PAGAMENTOS } from '../lib/dados.js'
 
@@ -19,9 +19,14 @@
   let outroValor = $state(false)
   let centavos = $state(0)
   let enviando = $state(false)
+  let adiantar = $state(false) // pagar também a próxima parcela
   const valorPago = $derived(pg ? (outroValor ? centavos : cent(pg.valor)) : 0)
+  const regraPg = $derived(regraDa(pg))
+  const parcelaPg = $derived(pg ? parcelaDe(pg, regraPg) : null)
+  const proxima = $derived(pg && podeAdiantar(pg, regraPg) ? { n: parcelaPg.n + 1, total: parcelaPg.total, valor: regraPg.valor } : null)
+  const totalPago = $derived(valorPago + (adiantar && proxima ? cent(proxima.valor) : 0))
 
-  function pedirPagar(ct) { pg = ct; forma = ''; data = hoje(); outroValor = false; centavos = 0 }
+  function pedirPagar(ct) { pg = ct; forma = ''; data = hoje(); outroValor = false; centavos = 0; adiantar = false }
   // paga ou excluída em outro celular: quando a lista recarrega sem ela, o painel fecha
   $effect(() => { if (pg && !S.contas.some(x => x.id === pg.id)) pg = null })
 
@@ -38,9 +43,11 @@
     if (!data || data > hoje()) return avisar('A data do pagamento não pode ser no futuro.', 'erro')
     enviando = true
     try {
-      const mensal = !!pg.regra_id
-      await pagarConta(pg, forma, data, valorPago / 100)
-      avisar(mensal ? 'Paga · a do mês que vem aparece sozinha' : 'Paga · saiu do caixa')
+      const mensal = !!pg.regra_id, p = parcelaPg, junto = !!(adiantar && proxima)
+      await pagarConta(pg, forma, data, valorPago / 100, junto)
+      const ultima = p && p.n + (junto ? 1 : 0) >= p.total
+      avisar(junto ? (ultima ? 'Pagas · eram as últimas' : `Pagas ${p.n}/${p.total} e ${p.n + 1}/${p.total}`)
+        : ultima ? 'Paga · era a última' : mensal ? 'Paga · a do mês que vem aparece sozinha' : 'Paga · saiu do caixa')
       pg = null
     } catch (e) {
       tratarErro(e)
@@ -70,10 +77,11 @@
     <ul aria-label="Contas a pagar">
       {#each S.contas as ct (ct.id)}
         {@const st = situacao(ct.vencimento, hoje())}
+        {@const p = parcelaDe(ct, regraDa(ct))}
         <li class="flex items-center gap-3 py-2.5 not-last:border-b not-last:border-linha/60">
           <button class="min-w-0 flex-1 py-1 text-left" onclick={() => abrirConta(ct)}>
             <span class="flex items-center gap-1.5 text-[15px] text-txt"><span class="truncate">{ct.descricao}</span>{#if ct.regra_id}<Repeat size={13} class="shrink-0 text-txt-3" aria-label="Todo mês" />{/if}</span>
-            <span class="block truncate text-[13px] {st.urgente ? 'text-sai' : 'text-txt-3'}">{st.texto}</span>
+            <span class="block truncate text-[13px] {st.urgente ? 'text-sai' : 'text-txt-3'}">{p ? `${p.n} de ${p.total} · ` : ''}{st.texto}</span>
           </button>
           <Dinheiro valor={ct.valor} moeda={false} class="text-[16px] font-semibold" />
           <button class="h-10 shrink-0 rounded-full bg-sai-fundo px-3.5 text-[14px] font-semibold text-sai" onclick={() => pedirPagar(ct)}>Paguei</button>
@@ -114,10 +122,17 @@
         class="h-10 min-w-0 flex-1 rounded-full border px-3 text-[16px] [color-scheme:dark] {data !== hoje() && data !== ontem() ? 'border-transparent bg-txt text-fundo' : 'border-linha bg-transparent text-txt-2'}" />
     </div>
 
+    {#if proxima}
+      <button class="mt-5 flex w-full items-center gap-3 rounded-2xl bg-sup-2/50 p-4 text-left" aria-pressed={adiantar} onclick={() => (adiantar = !adiantar)}>
+        <span class="flex-1 text-[15px]">Pagar também a {proxima.n}/{proxima.total} <span class="text-txt-3">· {fmt(proxima.valor)}</span></span>
+        <span class="relative h-7 w-12 rounded-full transition-colors {adiantar ? 'bg-ambar' : 'bg-sup-3'}"><span class="absolute top-1 left-1 size-5 rounded-full bg-white transition-transform {adiantar ? 'translate-x-5' : ''}"></span></span>
+      </button>
+    {/if}
+
     <!-- preso no rodapé do painel: com o teclado aberto, o painel rola e o botão continua à vista -->
     <div class="sticky -bottom-5 -mx-5 mt-6 bg-sup px-5 pt-2 pb-5">
       <button class="flex h-14 w-full items-center justify-center rounded-2xl bg-sai text-[17px] font-semibold text-fundo active:scale-[0.98] disabled:opacity-60" disabled={enviando} onclick={pagar}>
-        {#if enviando}<span class="size-5 animate-spin rounded-full border-2 border-fundo/30 border-t-fundo"></span>{:else}Confirmar {fmt(valorPago / 100)}{/if}
+        {#if enviando}<span class="size-5 animate-spin rounded-full border-2 border-fundo/30 border-t-fundo"></span>{:else}Confirmar {fmt(totalPago / 100)}{/if}
       </button>
     </div>
   </Folha>
